@@ -3,14 +3,14 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# To'g'rilangan Token va Kanal ID
+# Token va siz bergan aniq to'g'ri Kanal ID
 TOKEN = "8596519118:AAHYFVvax9dpJJy8s8LXAc_ZnBGnQdILMUY"
-CHANNEL_ID = -100445284162
+CHANNEL_ID = -1004452847162
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Yangi dizayndagi /start komandasi
+# /start komandasi va chiroyli menyu
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
     keyboard = InlineKeyboardMarkup(
