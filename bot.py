@@ -26,8 +26,8 @@ async def get_movie(message: types.Message):
         movie_code = int(code)
         
         try:
-            # Xabarni xatosiz yuborish uchun forward_message ishlatamiz
-            await bot.forward_message(
+            # Xabarni xatosiz yuborish uchun copy_message ishlatamiz
+            await bot.copy_message(
                 chat_id=message.chat.id,
                 from_chat_id=CHANNEL_ID,
                 message_id=movie_code
