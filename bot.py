@@ -3,9 +3,9 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Tokeningiz va To'g'rilangan Kanal ID (- belgisi bilan va bo'lish belgisisiz)
-TOKEN = "7917897825:AAFwG1Z0mQYm8Pq-28N37QdO5iH4n_A1r9s"
-CHANNEL_ID = -100445284162  # <-- Mana bu yerda xato bo'lmasligi kerak
+# To'g'rilangan Token va Kanal ID
+TOKEN = "8596519118:AAHYFVvax9dpJJy8s8LXAc_ZnBGnQdILMUY"
+CHANNEL_ID = -100445284162
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
