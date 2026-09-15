@@ -3,14 +3,14 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Token va Kanal ID
-TOKEN = "7917897825:AAFwG1Z0mQYm8Pq-28N37QdO5iH4n_A1r9s"  # O'zingizning tokeningiz
-CHANNEL_ID = -100445284/162  # <-- E'tibor bering, bu yerda vergul yoki to'g'ri format bo'lishi kerak, sizda qanday bo'lsa shunday qoldiring
+# Tokeningiz va To'g'rilangan Kanal ID (- belgisi bilan va bo'lish belgisisiz)
+TOKEN = "7917897825:AAFwG1Z0mQYm8Pq-28N37QdO5iH4n_A1r9s"
+CHANNEL_ID = -100445284162  # <-- Mana bu yerda xato bo'lmasligi kerak
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Yangilangan chiroyli va kelajakdagi monetizatsiyaga mos /start komandasi
+# Yangi dizayndagi /start komandasi
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
     keyboard = InlineKeyboardMarkup(
@@ -37,28 +37,24 @@ async def start_handler(message: types.Message):
     
     await message.answer(start_text, parse_mode="Markdown", reply_markup=keyboard)
 
-# Premium tugmasi bosilganda chiqadigan xabar uchun handler (ixtiyoriy)
 @dp.callback_query(F.data == "buy_premium")
 async def premium_callback(callback: types.CallbackQuery):
     await callback.answer("Tez kunda ishga tushadi! 🚀", show_alert=True)
 
-# Kino qidirish tugmasi bosilganda
 @dp.callback_query(F.data == "search_movie")
 async def search_callback(callback: types.CallbackQuery):
     await callback.message.answer("Marhamat, kino kodini yuboring! ✍️")
     await callback.answer()
 
-# Kino kodini qabul qilib, kanaldan copy_message orqali yuborish qismi
+# Kinoni forward qilmasdan, toza copy_message orqali yuborish
 @dp.message(F.text)
 async def get_movie(message: types.Message):
     code = message.text.strip()
     
-    # Foydalanuvchi faqat raqam kiritganini tekshiramiz
     if code.isdigit():
         movie_code = int(code)
         
         try:
-            # Xabarni uzatilgan (forward) yozuvisiz toza holatda yuborish uchun copy_message ishlatamiz
             await bot.copy_message(
                 chat_id=message.chat.id,
                 from_chat_id=CHANNEL_ID,
