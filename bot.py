@@ -3,14 +3,21 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Token va siz bergan aniq to'g'ri Kanal ID
-TOKEN = "8596519118:AAFANuseBfzYNxeu9k6i95xv-O5yU9zPVGc"
+TOKEN = "8596519118:AAHYFVvax9dpJJy8s8LXAc_ZnBGnQdILMUY"
 CHANNEL_ID = -1004452847162
+
+# ================= SOZLAMALAR =================
+CARD_NUMBER = "5614 6810 0069 4020"  # Karta raqamingiz
+CARD_OWNER = "Yodgorov Azamatjon"     # Karta egasining ismi
+
+# Rasmiy kanalingiz linki
+CHANNEL_LINK = "https://t.me/turkiston_kino"
+# ==============================================
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# /start komandasi va chiroyli menyu
+# /start komandasi va menyu
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
     keyboard = InlineKeyboardMarkup(
@@ -20,7 +27,7 @@ async def start_handler(message: types.Message):
                 InlineKeyboardButton(text="💎 Premium Obuna", callback_data="buy_premium")
             ],
             [
-                InlineKeyboardButton(text="📢 Rasmiy Kanalimiz", url="https://t.me/SIZNING_KANALINGIZ_LINKI")
+                InlineKeyboardButton(text="📢 Rasmiy Kanalimiz", url=CHANNEL_LINK)
             ]
         ]
     )
@@ -37,16 +44,25 @@ async def start_handler(message: types.Message):
     
     await message.answer(start_text, parse_mode="Markdown", reply_markup=keyboard)
 
+# To'lov haqida ma'lumot qismi
 @dp.callback_query(F.data == "buy_premium")
 async def premium_callback(callback: types.CallbackQuery):
-    await callback.answer("Tez kunda ishga tushadi! 🚀", show_alert=True)
+    text = (
+        "💎 **Premium obunaga xush kelibsiz!**\n\n"
+        "Premium orqali siz eng so'nggi va sara kinolarni tomosha qilishingiz mumkin bo'ladi.\n\n"
+        f"💳 To'lov uchun karta: `{CARD_NUMBER}`\n"
+        f"👤 Karta egasi: **{CARD_OWNER}**\n\n"
+        "✅ *To'lov qilganingizdan so'ng, to'lov cheki skrinshotini adminga yuboring!*"
+    )
+    await callback.message.answer(text, parse_mode="Markdown")
+    await callback.answer()
 
 @dp.callback_query(F.data == "search_movie")
 async def search_callback(callback: types.CallbackQuery):
     await callback.message.answer("Marhamat, kino kodini yuboring! ✍️")
     await callback.answer()
 
-# Kinoni forward qilmasdan, toza copy_message orqali yuborish
+# Kino qidirish va xatoni tekshirish
 @dp.message(F.text)
 async def get_movie(message: types.Message):
     code = message.text.strip()
@@ -62,8 +78,9 @@ async def get_movie(message: types.Message):
             )
         except Exception as e:
             await message.answer(
-                f"❌ Kechirasiz, kino topilmadi!\n\n"
-                f"Sababi: Kanalingizda **{movie_code}**-raqamli xabar mavjud emas yoki noto'g'ri kod kiritdingiz."
+                f"❌ Xatolik yuz berdi:\n\n`{e}`\n\n"
+                "_(Kino nima uchun chiqmayotganini aniqlashimiz uchun shu xabar ko'rsatilmoqda)_",
+                parse_mode="Markdown"
             )
     else:
         await message.answer("⚠️ Iltimos, kino kodini faqat raqam ko'rinishida yuboring!")
