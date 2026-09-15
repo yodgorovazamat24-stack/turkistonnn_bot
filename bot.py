@@ -3,7 +3,7 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-TOKEN = "8596519118:AAHYFVvax9dpJJy8s8LXAc_ZnBGnQdILMUY"
+TOKEN = "8596519118:AAFANuseBfzYNxeu9k6i95xv-O5yU9zPVGc"
 CHANNEL_ID = -1004452847162
 
 # ================= SOZLAMALAR =================
