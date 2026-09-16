@@ -11,7 +11,7 @@ TOKEN = "8596519118:AAFANuseBfzYNxeu9k6i95xv-O5yU9zPVGc"
 CHANNEL_ID = -1004452847162
 
 # ================= SOZLAMALAR =================
-ADMIN_ID = 5123456789          # <--- O'zingizning Telegram ID raqamingizni yozing!
+ADMIN_ID = 5144043830          # <--- O'zingizning Telegram ID raqamingizni yozing!
 ADMIN_USERNAME = "@yodgorov_life" # Sizning username'ingiz
 CARD_NUMBER = "5614 6810 0069 4020"  # Karta raqamingiz
 CARD_OWNER = "Yodgorov Azamatjon"      # Karta egasining ismi
