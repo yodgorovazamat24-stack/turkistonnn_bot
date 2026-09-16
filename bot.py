@@ -1,4 +1,7 @@
 import logging
+import asyncio
+from flask import Flask
+from threading import Thread
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -8,7 +11,7 @@ CHANNEL_ID = -1004452847162
 
 # ================= SOZLAMALAR =================
 CARD_NUMBER = "5614 6810 0069 4020"  # Karta raqamingiz
-CARD_OWNER = "Yodgorov Azamatjon"     # Karta egasining ismi
+CARD_OWNER = "Yodgorov Azamatjon"      # Karta egasining ismi
 
 # Rasmiy kanalingiz linki
 CHANNEL_LINK = "https://t.me/turkiston_kino"
@@ -16,6 +19,21 @@ CHANNEL_LINK = "https://t.me/turkiston_kino"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
+
+# ========= RENDER UCHUN KICHIK VEB-SERVER =========
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot ishlayapti va faol holatda!"
+
+def run_web():
+    app.run(host='0.0.0.0', port=10000)
+
+def keep_alive():
+    t = Thread(target=run_web)
+    t.start()
+# =================================================
 
 # /start komandasi va menyu
 @dp.message(Command("start"))
@@ -91,5 +109,5 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    import asyncio
+    keep_alive()  # Veb-serverni ishga tushiramiz (Render port talabi uchun)
     asyncio.run(main())
