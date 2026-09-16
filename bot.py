@@ -11,13 +11,12 @@ TOKEN = "8596519118:AAFANuseBfzYNxeu9k6i95xv-O5yU9zPVGc"
 CHANNEL_ID = -1004452847162
 
 # ================= SOZLAMALAR =================
-ADMIN_ID = 5144043830          # <--- O'zingizning Telegram ID raqamingizni yozing!
-ADMIN_USERNAME = "@yodgorov_life" # Sizning username'ingiz
+ADMIN_ID = 5144043830          # <--- Sizning haqiqiy Admin ID raqamingiz
+ADMIN_USERNAME = "@yodgorov_life"
 CARD_NUMBER = "5614 6810 0069 4020"  # Karta raqamingiz
 CARD_OWNER = "Yodgorov Azamatjon"      # Karta egasining ismi
 PREMIUM_PRICE = "5 000 so'm"           # Obuna narxi
 
-# Rasmiy kanalingiz linki
 CHANNEL_LINK = "https://t.me/turkiston_kino"
 # ==============================================
 
@@ -47,6 +46,9 @@ def keep_alive():
 # /start komandasi va menyu
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
+    if message.from_user.id == ADMIN_ID:
+        await message.answer("🛠 *Admin ekanligingiz aniqlandi.*\nAdmin panelni ochish uchun 👉 /admin", parse_mode="Markdown")
+
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -121,22 +123,40 @@ async def handle_payment_check(message: types.Message):
         reply_markup=keyboard
     )
 
-# Admin obuna qo'shish buyrug'i: /addpremium <user_id>
+# ================= ADMIN PANEL BUYRUQLARI =================
+
+@dp.message(Command("admin"))
+async def admin_panel(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    
+    text = (
+        "👑 **ADMIN PANEL**\n\n"
+        "Boshqaruv buyruqlari. Nusxalab, ID o'rniga foydalanuvchi raqamini yozib jo'nating:\n\n"
+        "✅ **Obuna qo'shish:**\n"
+        "`/addpremium ID`\n\n"
+        "❌ **Obunani olish:**\n"
+        "`/delpremium ID`\n\n"
+        "📊 **Statistikani ko'rish:**\n"
+        "`/stats`"
+    )
+    await message.answer(text, parse_mode="Markdown")
+
+# 1. Premium qo'shish
 @dp.message(Command("addpremium"))
 async def add_premium_command(message: types.Message):
     if message.from_user.id != ADMIN_ID:
-        return  # Faqat admin ishlatishi mumkin
+        return
     
     args = message.text.split()
     if len(args) < 2:
-        await message.answer("⚠️ Xato! Ishlatish tartibi: `/addpremium FOYDALANUVCHI_ID`", parse_mode="Markdown")
+        await message.answer("⚠️ Xato! Ishlatish tartibi: `/addpremium ID` (Masalan: `/addpremium 6035792015`)", parse_mode="Markdown")
         return
     
     try:
         target_user_id = int(args[1])
         PREMIUM_USERS.add(target_user_id)
         
-        # Foydalanuvchiga xabar beramiz
         await bot.send_message(
             target_user_id,
             "🎉 **Tabriklaymiz!** Admin to'lovingizni tasdiqladi va sizga Premium obuna berildi.\n"
@@ -147,12 +167,41 @@ async def add_premium_command(message: types.Message):
     except Exception as e:
         await message.answer(f"❌ Xatolik yuz berdi: `{e}`", parse_mode="Markdown")
 
-# Kino qidirish va xatoni tekshirish (Faqat Premium foydalanuvchilar uchun)
+# 2. Premium'ni olib tashlash
+@dp.message(Command("delpremium"))
+async def del_premium_command(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer("⚠️ Xato! Ishlatish tartibi: `/delpremium ID`", parse_mode="Markdown")
+        return
+    
+    try:
+        target_user_id = int(args[1])
+        if target_user_id in PREMIUM_USERS:
+            PREMIUM_USERS.remove(target_user_id)
+            await message.answer(f"❌ `{target_user_id}` premium ro'yxatidan olib tashlandi.", parse_mode="Markdown")
+        else:
+            await message.answer(f"⚠️ Bu foydalanuvchi premium ro'yxatida yo'q.", parse_mode="Markdown")
+    except Exception as e:
+        await message.answer(f"❌ Xatolik: `{e}`", parse_mode="Markdown")
+
+# 3. Statistika
+@dp.message(Command("stats"))
+async def stats_command(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    await message.answer(f"📊 Jami Premium foydalanuvchilar soni: **{len(PREMIUM_USERS)} ta**", parse_mode="Markdown")
+
+# ====================================================
+
+# Kino qidirish va xatoni tekshirish
 @dp.message(F.text)
 async def get_movie(message: types.Message):
     user_id = message.from_user.id
     
-    # Premium tekshiruvi
     if user_id not in PREMIUM_USERS:
         await message.answer(
             "🔒 **Kino ko'rish uchun sizda Premium obuna yo'q!**\n\n"
@@ -185,5 +234,5 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    keep_alive()  # Veb-serverni ishga tushiramiz (Render port talabi uchun)
+    keep_alive()
     asyncio.run(main())
