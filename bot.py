@@ -11,13 +11,15 @@ TOKEN = "8596519118:AAFANuseBfzYNxeu9k6i95xv-O5yU9zPVGc"
 CHANNEL_ID = -1004452847162
 
 # ================= SOZLAMALAR =================
-ADMIN_ID = 5144043830          # <--- Sizning haqiqiy Admin ID raqamingiz
+ADMIN_ID = 5144043830
 ADMIN_USERNAME = "@yodgorov_life"
 CARD_NUMBER = "5614 6810 0069 4020"  # Karta raqamingiz
 CARD_OWNER = "Yodgorov Azamatjon"      # Karta egasining ismi
 PREMIUM_PRICE = "5 000 so'm"           # Obuna narxi
+PREMIUM_DURATION = "1 hafta (7 kun)"   # Obuna muddati
 
 CHANNEL_LINK = "https://t.me/turkiston_kino"
+INSTAGRAM_LINK = "https://www.instagram.com/turkiston_kino"  # Instagram sahifangiz
 # ==============================================
 
 bot = Bot(token=TOKEN)
@@ -53,9 +55,10 @@ async def start_handler(message: types.Message):
         inline_keyboard=[
             [
                 InlineKeyboardButton(text="🔍 Kino qidirish", callback_data="search_movie"),
-                InlineKeyboardButton(text="💎 Premium Obuna", callback_data="buy_premium")
+                InlineKeyboardButton(text="💎 1 Haftalik Premium", callback_data="buy_premium")
             ],
             [
+                InlineKeyboardButton(text="📸 Instagram sahifamiz", url=INSTAGRAM_LINK),
                 InlineKeyboardButton(text="📢 Rasmiy Kanalimiz", url=CHANNEL_LINK)
             ]
         ]
@@ -63,32 +66,38 @@ async def start_handler(message: types.Message):
     
     start_text = (
         "🎬 **Assalomu alaykum, Turkiston kino botiga xush kelibsiz!**\n\n"
-        "Bu bot orqali oilangiz va o'zingiz uchun eng sara, foydali va xavfsiz kinolarni yuqori sifatda tomosha qilishingiz mumkin.\n\n"
+        "Har kuni yangi premyeralar, oilaviy va xavfsiz kinolar faqat bizda!\n\n"
         "📌 **Bot imkoniyatlari:**\n"
-        "• 🔍 Kino kodi orqali tezkor qidiruv (Premium uchun)\n"
-        "• 🚫 Ortiqcha va zararli reklamalarsiz\n"
-        "• 💎 Eksklyuziv premyeralar va yuqori sifatli videolar\n\n"
+        "• 🔍 Kino kodi orqali tezkor qidiruv\n"
+        "• 🎬 Har kuni yangi eksklyuziv kino premyeralari\n"
+        "• 🚫 Ortiqcha va zararli reklamalarsiz\n\n"
         "👉 *Marhamat, menyudan kerakli bo'limni tanlang!*"
     )
     
     await message.answer(start_text, parse_mode="Markdown", reply_markup=keyboard)
 
-# To'lov haqida ma'lumot qismi
+# To'lov haqida ma'lumot qismi (7 kunlik)
 @dp.callback_query(F.data == "buy_premium")
 async def premium_callback(callback: types.CallbackQuery):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📸 Instagramda obuna bo'lish", url=INSTAGRAM_LINK)
+            ],
             [
                 InlineKeyboardButton(text="👨‍💻 Adminga yozish", url=f"https://t.me/{ADMIN_USERNAME.lstrip('@')}")
             ]
         ]
     )
     text = (
-        "💎 **Premium obunaga xush kelibsiz!**\n\n"
-        f"Kinolarni cheksiz ko'rish uchun 1 oylik obuna narxi: **{PREMIUM_PRICE}**\n\n"
+        "💎 **1 Haftalik Premium Obuna**\n\n"
+        f"⏳ Muddati: **{PREMIUM_DURATION}**\n"
+        f"💰 Narxi: **{PREMIUM_PRICE}**\n\n"
+        "🎁 *Bu obuna davomida har kuni qo'shiladigan yangi premyeralarni tomosha qiling!*\n\n"
+        "⚠️ *Shart:* Yangi kinolar va e'lonlarni ko'rib borish uchun Instagram sahifamizga obuna bo'ling!\n\n"
         f"💳 To'lov uchun karta: `{CARD_NUMBER}`\n"
         f"👤 Karta egasi: **{CARD_OWNER}**\n\n"
-        "✅ *To'lovni amalga oshirgach, chek rasmini shu yerga yuboring va quyidagi tugma orqali adminga ham tashlab qo'ying!*"
+        "✅ *To'lovni amalga oshirgach, chek rasmini shu yerga yuboring va adminga tashlab qo'ying!*"
     )
     await callback.message.answer(text, parse_mode="Markdown", reply_markup=keyboard)
     await callback.answer()
@@ -101,7 +110,7 @@ async def search_callback(callback: types.CallbackQuery):
     else:
         await callback.message.answer(
             "🔒 **Kino qidirish uchun Premium obuna talab etiladi!**\n\n"
-            f"Obuna narxi: {PREMIUM_PRICE}. To'lov qilish uchun '💎 Premium Obuna' tugmasini bosing.",
+            f"Obuna narxi ({PREMIUM_DURATION}): {PREMIUM_PRICE}. To'lov qilish uchun '💎 1 Haftalik Premium' tugmasini bosing.",
             parse_mode="Markdown"
         )
     await callback.answer()
@@ -150,7 +159,7 @@ async def add_premium_command(message: types.Message):
     
     args = message.text.split()
     if len(args) < 2:
-        await message.answer("⚠️ Xato! Ishlatish tartibi: `/addpremium ID` (Masalan: `/addpremium 6035792015`)", parse_mode="Markdown")
+        await message.answer("⚠️ Xato! Ishlatish tartibi: `/addpremium ID`", parse_mode="Markdown")
         return
     
     try:
@@ -159,7 +168,7 @@ async def add_premium_command(message: types.Message):
         
         await bot.send_message(
             target_user_id,
-            "🎉 **Tabriklaymiz!** Admin to'lovingizni tasdiqladi va sizga Premium obuna berildi.\n"
+            "🎉 **Tabriklaymiz!** Admin to'lovingizni tasdiqladi va sizga **1 haftalik Premium obuna** berildi.\n"
             "Endi kino kodlarini yuborib tomosha qilishingiz mumkin! 🎬",
             parse_mode="Markdown"
         )
@@ -205,7 +214,7 @@ async def get_movie(message: types.Message):
     if user_id not in PREMIUM_USERS:
         await message.answer(
             "🔒 **Kino ko'rish uchun sizda Premium obuna yo'q!**\n\n"
-            f"Obuna narxi: {PREMIUM_PRICE}. To'lov qilib, chekni yuboring va adminga murojaat qiling.",
+            f"Obuna narxi (1 hafta): {PREMIUM_PRICE}. To'lov qilib, chekni yuboring va adminga murojaat qiling.",
             parse_mode="Markdown"
         )
         return
