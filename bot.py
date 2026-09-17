@@ -18,15 +18,15 @@ CARD_OWNER = "Yodgorov Azamatjon"      # Karta egasining ismi
 PREMIUM_PRICE = "5 000 so'm"           # Obuna narxi
 PREMIUM_DURATION = "1 hafta (7 kun)"   # Obuna muddati
 
-CHANNEL_LINK = "https://t.me/turkiston_kino"
 INSTAGRAM_LINK = "https://www.instagram.com/turkiston_kino"  # Instagram sahifangiz
 # ==============================================
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Premium foydalanuvchilar to'plami
+# Foydalanuvchilar to'plamlari
 PREMIUM_USERS = set()
+ALL_USERS = set()  # Jami start bosgan foydalanuvchilar bazasi
 
 # ========= RENDER UCHUN KICHIK VEB-SERVER =========
 app = Flask('')
@@ -48,9 +48,13 @@ def keep_alive():
 # /start komandasi va menyu
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
-    if message.from_user.id == ADMIN_ID:
+    user_id = message.from_user.id
+    ALL_USERS.add(user_id)  # Har safar start bosganda bazaga qo'shiladi
+    
+    if user_id == ADMIN_ID:
         await message.answer("🛠 *Admin ekanligingiz aniqlandi.*\nAdmin panelni ochish uchun 👉 /admin", parse_mode="Markdown")
 
+    # Kanal tugmasi olib tashlandi, faqat Instagram va boshqa tugmalar qoldi
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -58,8 +62,7 @@ async def start_handler(message: types.Message):
                 InlineKeyboardButton(text="💎 1 Haftalik Premium", callback_data="buy_premium")
             ],
             [
-                InlineKeyboardButton(text="📸 Instagram sahifamiz", url=INSTAGRAM_LINK),
-                InlineKeyboardButton(text="📢 Rasmiy Kanalimiz", url=CHANNEL_LINK)
+                InlineKeyboardButton(text="📸 Instagram sahifamiz", url=INSTAGRAM_LINK)
             ]
         ]
     )
@@ -202,7 +205,13 @@ async def del_premium_command(message: types.Message):
 async def stats_command(message: types.Message):
     if message.from_user.id != ADMIN_ID:
         return
-    await message.answer(f"📊 Jami Premium foydalanuvchilar soni: **{len(PREMIUM_USERS)} ta**", parse_mode="Markdown")
+    
+    text = (
+        "📊 **BOT STATISTIKASI**\n\n"
+        f"👥 Jami obunachilar (Start bosganlar): **{len(ALL_USERS)} ta**\n"
+        f"💎 Premium obunadagilar: **{len(PREMIUM_USERS)} ta**"
+    )
+    await message.answer(text, parse_mode="Markdown")
 
 # ====================================================
 
