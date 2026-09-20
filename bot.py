@@ -88,18 +88,32 @@ async def search_callback(callback: types.CallbackQuery):
     await callback.message.answer("Marhamat, ko'rmoqchi bo'lgan kino kodini yuboring! ✍️")
     await callback.answer()
 
-# Reklama bo'limi ma'lumotlari
+# Reklama berish tugmasi bosilganda ishlaydigan qism
 @dp.callback_query(F.data == "reklama_info")
 async def reklama_callback(callback: types.CallbackQuery):
     text = (
-        "📢 **Reklama Xizmati**\n\n"
-        "Botimizda o'z kanalingiz, guruhingiz yoki biznesingizni reklama qilishni istaysizmi?\n\n"
-        f"👨‍💻 **Admin bilan bog'lanish:** {ADMIN_USERNAME}\n"
-        "Murojaat qiling va qulay shartlar asosida reklama joylashtiring! 🚀"
+        "📢 **Reklama Xizmati va Shartlari**\n\n"
+        "Botimizda o'z kanalingiz, guruhingiz yoki loyihangizni reklama qilishingiz mumkin!\n\n"
+        "📋 **Reklama turlari va narxlari:**\n"
+        "• **1 soat** — Lenta boshida (top) turadi\n"
+        "• **24 soat** — Lenta yuqori qismida saqlanadi\n"
+        "• **Doimiy** — Arxivda qoladi\n\n"
+        "⚠️ **Talablar:**\n"
+        "• Reklama mazmuni O'zbekiston qonunchiligiga va Telegram qoidalariga zid bo'lmasligi kerak.\n"
+        "• Shubhali, aldov yoki taqiqlangan kontentlar qabul qilinmaydi.\n\n"
+        f"👨‍💻 **Murojaat va buyurtma uchun:** {ADMIN_USERNAME}\n"
+        "*Yozayotganda reklamangiz matni va havolasini birga yuboring!* 🚀"
     )
-    await callback.message.answer(text, parse_mode="Markdown")
+    
+    # Orqaga qaytish tugmasi
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_start")]
+        ]
+    )
+    
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
     await callback.answer()
-
 # ================= ADMIN PANEL BUYRUQLARI =================
 
 @dp.message(Command("admin"))
