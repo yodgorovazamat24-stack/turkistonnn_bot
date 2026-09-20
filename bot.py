@@ -52,7 +52,6 @@ async def check_subscriptions(user_id: int) -> bool:
             if member.status in ["left", "kicked"]:
                 return False
         except Exception:
-            # Agar bot kanalga admin bo'lmasa yoki xatolik bo'lsa
             return False
     return True
 
@@ -119,16 +118,13 @@ async def stats_command(message: types.Message):
 async def get_movie(message: types.Message):
     user_id = message.from_user.id
     
-    # Kanallarga obuna bo'lganini tekshiramiz
     is_subscribed = await check_subscriptions(user_id)
     
     if not is_subscribed:
-        # Obuna bo'lmagan bo'lsa, kanal tugmalarini chiqazamiz
         keyboard_buttons = []
         for idx, ch in enumerate(REQUIRED_CHANNELS, 1):
             keyboard_buttons.append([InlineKeyboardButton(text=f"📢 {idx}-kanalga obuna bo'lish", url=ch["url"])])
         
-        # Tekshirish tugmasi
         keyboard_buttons.append([InlineKeyboardButton(text="🔄 Obunani tekshirish", callback_data="check_sub")])
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
@@ -141,7 +137,6 @@ async def get_movie(message: types.Message):
         )
         return
 
-    # Agar obuna bo'lgan bo'lsa, kino kodini qidirib beradi
     code = message.text.strip()
     if code.isdigit():
         movie_code = int(code)
@@ -160,7 +155,6 @@ async def get_movie(message: types.Message):
     else:
         await message.answer("⚠️ Iltimos, kino kodini faqat raqam ko'rinishida yuboring!")
 
-# Obunani qayta tekshirish tugmasi
 @dp.callback_query(F.data == "check_sub")
 async def recheck_subscription(callback: types.CallbackQuery):
     user_id = callback.from_user.id
@@ -173,6 +167,8 @@ async def recheck_subscription(callback: types.CallbackQuery):
 
 async def main():
     logging.basicConfig(level=logging.INFO)
+    # Eski webhookni tozalab tashlash (Xatolikni oldini oladi)
+    await bot.delete_webhook(drop_pending_updates=True)
     print("Bot mukammal holatda ishga tushdi...")
     await dp.start_polling(bot)
 
