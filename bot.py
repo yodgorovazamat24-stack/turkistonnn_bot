@@ -8,7 +8,7 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import yt_dlp
 
-TOKEN = "8596519118:AAF-Yw3Oz5aHO7Fs_29mHgu-4Y4G9hA-6GU"
+TOKEN = "8596519118:AAHnKyRAk4vEZGtjH8gx-pWGOk2JAZ89-YU"
 CHANNEL_ID = -1004452847162  # Kino bazasi joylashgan yopiq kanal
 
 # ================= SOZLAMALAR =================
