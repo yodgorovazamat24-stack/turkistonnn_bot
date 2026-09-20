@@ -6,6 +6,7 @@ from threading import Thread
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+import yt_dlp
 
 TOKEN = "8596519118:AAF-Yw3Oz5aHO7Fs_29mHgu-4Y4G9hA-6GU"
 CHANNEL_ID = -1004452847162  # Kino bazasi joylashgan yopiq kanal
@@ -55,7 +56,17 @@ async def check_subscriptions(user_id: int) -> bool:
             return False
     return True
 
-# /start komandasi va menyu
+# Asosiy menyu tugmalari
+def get_main_menu():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔍 Kino qidirish", callback_data="search_movie")],
+            [InlineKeyboardButton(text="📥 Video yuklab olish", callback_data="download_video_menu")],
+            [InlineKeyboardButton(text="🎵 Qo'shiq qidirish", callback_data="search_song_menu")]
+        ]
+    )
+
+# /start komandasi
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
     user_id = message.from_user.id
@@ -64,92 +75,126 @@ async def start_handler(message: types.Message):
     if user_id == ADMIN_ID:
         await message.answer("🛠 *Admin ekanligingiz aniqlandi.*\nAdmin panelni ochish uchun 👉 /admin", parse_mode="Markdown")
 
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="🔍 Kino qidirish", callback_data="search_movie")
-            ]
-        ]
-    )
-    
     start_text = (
-        "🎬 **Assalomu alaykum, Turkiston kino botiga xush kelibsiz!**\n\n"
-        "Kinoni ko'rish uchun quyidagi shartlarni bajarib, kino kodini yuboring.\n\n"
-        "👉 *Marhamat, menyudan kerakli bo'limni tanlang!*"
+        "🎬 **Assalomu alaykum, Turkiston botiga xush kelibsiz!**\n\n"
+        "Quyidagi menyudan o'zingizga kerakli xizmatni tanlang:\n\n"
+        "• *Kino qidirish* — Kino kodini yuborish orqali kinolarni oling.\n"
+        "• *Video yuklab olish* — YouTube, Instagram va boshqa tarmoqlardan video havolasini yuboring.\n"
+        "• *Qo'shiq qidirish* — Musiqa yoki qo'shiq nomini yuboring."
     )
     
-    await message.answer(start_text, parse_mode="Markdown", reply_markup=keyboard)
+    await message.answer(start_text, parse_mode="Markdown", reply_markup=get_main_menu())
 
+# Tugmalar bo'yicha yo'naltirishlar
 @dp.callback_query(F.data == "search_movie")
 async def search_callback(callback: types.CallbackQuery):
-    await callback.message.answer("Marhamat, ko'rmoqchi bo'lgan kino kodini yuboring! ✍️")
-    await callback.answer()
-    
-    # Orqaga qaytish tugmasi
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_start")]
         ]
     )
-    
-    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+    await callback.message.edit_text("Marhamat, ko'rmoqchi bo'lgan **kino kodini** (raqam) yuboring! ✍️", parse_mode="Markdown", reply_markup=keyboard)
     await callback.answer()
-# ================= ADMIN PANEL BUYRUQLARI =================
+
+@dp.callback_query(F.data == "download_video_menu")
+async def download_video_callback(callback: types.CallbackQuery):
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_start")]
+        ]
+    )
+    await callback.message.edit_text("📥 Menga **YouTube** yoki **Instagram** video havolasini (linkini) yuboring, men uni sizga yuklab beraman!", parse_mode="Markdown", reply_markup=keyboard)
+    await callback.answer()
+
+@dp.callback_query(F.data == "search_song_menu")
+async def search_song_callback(callback: types.CallbackQuery):
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_start")]
+        ]
+    )
+    await callback.message.edit_text("🎵 Qidirayotgan qo'shig'ingiz yoki musiqangiz nomini (artist va nomini) yuboring!", parse_mode="Markdown", reply_markup=keyboard)
+    await callback.answer()
+
+@dp.callback_query(F.data == "back_to_start")
+async def back_to_start_callback(callback: types.CallbackQuery):
+    start_text = (
+        "🎬 **Assalomu alaykum, Turkiston botiga xush kelibsiz!**\n\n"
+        "Quyidagi menyudan o'zingizga kerakli xizmatni tanlang:"
+    )
+    await callback.message.edit_text(start_text, parse_mode="Markdown", reply_markup=get_main_menu())
+    await callback.answer()
+
+# ================= ADMIN PANEL =================
 
 @dp.message(Command("admin"))
 async def admin_panel(message: types.Message):
     if message.from_user.id != ADMIN_ID:
         return
-    
-    text = (
-        "👑 **ADMIN PANEL**\n\n"
-        "📊 **Statistikani ko'rish:**\n"
-        "`/stats`"
-    )
+    text = "👑 **ADMIN PANEL**\n\n📊 Statistikani ko'rish uchun: `/stats`"
     await message.answer(text, parse_mode="Markdown")
 
-# Statistika (Jami obunachilar)
 @dp.message(Command("stats"))
 async def stats_command(message: types.Message):
     if message.from_user.id != ADMIN_ID:
         return
-    
-    text = (
-        "📊 **BOT STATISTIKASI**\n\n"
-        f"👥 Jami obunachilar (Start bosganlar): **{len(ALL_USERS)} ta**"
-    )
+    text = f"📊 **BOT STATISTIKASI**\n\n👥 Jami obunachilar (Start bosganlar): **{len(ALL_USERS)} ta**"
     await message.answer(text, parse_mode="Markdown")
 
-# ====================================================
+# ================= XABARLAR BILAN ISHLASH (HANDLER) =================
 
-# Kino qidirish va obunani tekshirish
 @dp.message(F.text)
-async def get_movie(message: types.Message):
+async def handle_all_messages(message: types.Message):
     user_id = message.from_user.id
     
+    # Obunani tekshirish
     is_subscribed = await check_subscriptions(user_id)
-    
     if not is_subscribed:
         keyboard_buttons = []
         for idx, ch in enumerate(REQUIRED_CHANNELS, 1):
             keyboard_buttons.append([InlineKeyboardButton(text=f"📢 {idx}-kanalga obuna bo'lish", url=ch["url"])])
         
         keyboard_buttons.append([InlineKeyboardButton(text="🔄 Obunani tekshirish", callback_data="check_sub")])
-        
         keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
         
         await message.answer(
-            "⚠️ **Kino olish uchun quyidagi kanallarga obuna bo'lishingiz shart!**\n\n"
+            "⚠️ **Botdan foydalanish uchun quyidagi kanallarga obuna bo'lishingiz shart!**\n\n"
             "Iltimos, kanallarga a'zo bo'lib, so'ng **'🔄 Obunani tekshirish'** tugmasini bosing:",
             parse_mode="Markdown",
             reply_markup=keyboard
         )
         return
 
-    code = message.text.strip()
-    if code.isdigit():
-        movie_code = int(code)
+    text = message.text.strip()
+
+    # 1. Agar yuborilgan matn havola (link) bo'lsa -> Videoni yuklab berish
+    if text.startswith("http://") or text.startswith("https://"):
+        processing_msg = await message.answer("⏳ Video yuklab olinmoqda, iltimos kuting...")
         
+        output_template = "video.mp4"
+        ydl_opts = {
+            'format': 'best',
+            'outtmpl': output_template,
+            'max_filesize': 50 * 1024 * 1024,  # Telegram uchun 50MB gacha
+        }
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([text])
+            
+            video_file = types.FSInputFile(output_template)
+            await message.answer_video(video=video_file, caption="✅ Marhamat, siz so'ragan video!")
+            
+            if os.path.exists(output_template):
+                os.remove(output_template)
+                
+            await processing_msg.delete()
+        except Exception as e:
+            await processing_msg.edit_text(f"❌ Videoni yuklab bo'lmadi. Havola noto'g'ri yoki hajmi juda katta.\n\nXatolik: {e}")
+
+    # 2. Agar yuborilgan matn raqam bo'lsa -> Kino kodini qidirish
+    elif text.isdigit():
+        movie_code = int(text)
         try:
             await bot.copy_message(
                 chat_id=message.chat.id,
@@ -161,8 +206,14 @@ async def get_movie(message: types.Message):
                 f"❌ Xatolik yuz berdi (Bunday kodli kino topilmadi):\n\n`{e}`",
                 parse_mode="Markdown"
             )
+
+    # 3. Agar oddiy matn (qo'shiq nomi yoki boshqa so'z) bo'lsa
     else:
-        await message.answer("⚠️ Iltimos, kino kodini faqat raqam ko'rinishida yuboring!")
+        await message.answer(
+            f"🔍 Siz yubordingiz: *{text}*\n\n"
+            "Hozircha qo'shiq qidirish bazasi ulanmoqda. Tez orada qo'shiqni ham topib beradigan qilamiz! 🎵",
+            parse_mode="Markdown"
+        )
 
 @dp.callback_query(F.data == "check_sub")
 async def recheck_subscription(callback: types.CallbackQuery):
@@ -170,7 +221,7 @@ async def recheck_subscription(callback: types.CallbackQuery):
     is_subscribed = await check_subscriptions(user_id)
     
     if is_subscribed:
-        await callback.message.edit_text("✅ Tabriklaymiz, obuna tasdiqlandi! Endi istalgan kino kodini yuborishingiz mumkin.")
+        await callback.message.edit_text("✅ Tabriklaymiz, obuna tasdiqlandi! Endi istalgan xizmatdan foydalanishingiz mumkin.", reply_markup=get_main_menu())
     else:
         await callback.answer("❌ Siz hali hamma kanallarga obuna bo'lmadingiz!", show_alert=True)
 
