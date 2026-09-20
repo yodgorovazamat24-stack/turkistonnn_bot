@@ -7,7 +7,7 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-TOKEN = "8596519118:AAFANuseBfzYNxeu9k6i95xv-O5yU9zPVGc"
+TOKEN = "8596519118:AAF-Yw3Oz5aHO7Fs_29mHgu-4Y4G9hA-6GU"
 CHANNEL_ID = -1004452847162  # Kino bazasi joylashgan yopiq kanal
 
 # ================= SOZLAMALAR =================
