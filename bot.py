@@ -184,14 +184,14 @@ async def handle_all_messages(message: types.Message):
             
             video_file = types.FSInputFile(output_template)
         
-        # Reklama matni va bot havolasi
-        caption_text = (
-            "✅ **Marhamat, siz so'ragan video!**\n\n"
-            "📥 *Video yuklab oluvchi bot: @turkiston_bot*\n"
-            "🎬 *Kino va videolar bazasi*"
-        )
-        
-        await message.answer_video(video=video_file, caption=caption_text, parse_mode="Markdown")
+            # Reklama matni va bot havolasi
+            caption_text = (
+                "✅ **Marhamat, siz so'ragan video!**\n\n"
+                "📥 *Video yuklab oluvchi bot: @turkiston_bot*\n"
+                "🎬 *Kino va videolar bazasi*"
+            )
+            
+            await message.answer_video(video=video_file, caption=caption_text, parse_mode="Markdown")
             
             if os.path.exists(output_template):
                 os.remove(output_template)
@@ -200,14 +200,15 @@ async def handle_all_messages(message: types.Message):
         except Exception as e:
             await processing_msg.edit_text(f"❌ Videoni yuklab bo'lmadi. Havola noto'g'ri yoki hajmi juda katta.\n\nXatolik: {e}")
 
-    # 2. Agar yuborilgan matn raqam bo'lsa -> Kino kodini qidirish
+    # 2. Agar yuborilgan matn raqam bo'lsa -> Kino kodini qidirish (Forward qilib bo'lmaydigan qilib)
     elif text.isdigit():
         movie_code = int(text)
         try:
             await bot.copy_message(
                 chat_id=message.chat.id,
                 from_chat_id=CHANNEL_ID,
-                message_id=movie_code
+                message_id=movie_code,
+                protect_content=True  # 👈 Boshqalarga ulashish va saqlashni bloklash
             )
         except Exception as e:
             await message.answer(
