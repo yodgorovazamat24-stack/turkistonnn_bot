@@ -220,7 +220,7 @@ async def handle_all_messages(message: types.Message):
                 parse_mode="Markdown"
             )
 
-    # 3. Oddiy matn bo'lsa -> SoundCloud orqali qo'shiq qidirish va reklamalarni filtrlash
+    # 3. Oddiy matn bo'lsa -> SoundCloud orqali qo'shiq qidirish va kuchaytirilgan spam filtrlash
     else:
         processing_msg = await message.answer("🎵 Qo'shiqlar qidirilmoqda, iltimos kuting...")
         try:
@@ -233,7 +233,7 @@ async def handle_all_messages(message: types.Message):
             }
             def search_songs():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    return ydl.extract_info(f"scsearch15:{text}", download=False)
+                    return ydl.extract_info(f"scsearch25:{text}", download=False)
             
             info = await asyncio.to_thread(search_songs)
             entries = info.get('entries', [])
@@ -246,18 +246,30 @@ async def handle_all_messages(message: types.Message):
             video_ids = []
             
             for entry in entries:
-                title = entry.get('title')
-                url = entry.get('webpage_url') or entry.get('url')
+                title = entry.get('title', '')
+                url = entry.get('webpage_url') or entry.get('url', '')
+                description = entry.get('description', '')
                 
-                # Reklama yoki Telegram havolalarini filtrlab tashlaymiz
+                # Matnlarni kichik harfga o'tkazib tekshiramiz
+                combined_text = (title + " " + description + " " + str(url)).lower()
+                
+                # Kuchaytirilgan reklama va spam so'zlar ro'yxati
+                spam_keywords = [
+                    't.me', 'telegram', 'a_toolsx', 'must join', 
+                    'subscribe', 'bot', 'channel', 'официальный канал', 
+                    'подпишись', 'реклама', 'кanal', 'obuna', 'join'
+                ]
+                
+                # Agar matnda reklama so'zlari bo'lsa, uni tashlab yuboramiz
+                if any(word in combined_text for word in spam_keywords):
+                    continue
+                
                 if not title or not url:
                     continue
-                if "t.me" in url or "telegram" in url.lower() or "A_ToolsX" in title:
-                    continue
                 
-                # Agar havola to'liq bo'lmasa, to'g'rilaymiz
-                if not url.startswith('http'):
-                    url = "https://soundcloud.com" + url
+                # Havolani to'g'rilash
+                if not str(url).startswith('http'):
+                    url = "https://soundcloud.com" + str(url)
                 
                 if len(video_ids) < 10:
                     video_ids.append(url)
@@ -268,7 +280,7 @@ async def handle_all_messages(message: types.Message):
                     break
 
             if not video_ids:
-                await processing_msg.edit_text("❌ Afsuski, mos qo'shiqlar topilmadi.")
+                await processing_msg.edit_text("❌ Afsuski, bu so'rov bo'yicha toza qo'shiqlar topilmadi.")
                 return
 
             USER_SEARCH_RESULTS[user_id] = video_ids
@@ -356,6 +368,8 @@ async def cancel_search_callback(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "check_sub")
 async def recheck_subscription(callback: types.CallbackQuery):
     user_id = callback.from_user.id
+    is_subscribed = await check_subscriptions(user_id)
+    
     is_subscribed = await check_subscriptions(user_id)
     
     if is_subscribed:
