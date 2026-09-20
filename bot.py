@@ -233,7 +233,6 @@ async def handle_all_messages(message: types.Message):
             }
             def search_songs():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    # SoundCloud orqali qidirish (serverlarni bloklamaydi)
                     return ydl.extract_info(f"scsearch10:{text}", download=False)
             
             info = await asyncio.to_thread(search_songs)
@@ -271,7 +270,7 @@ async def handle_all_messages(message: types.Message):
         except Exception as e:
             await processing_msg.edit_text(f"❌ Qidirishda xatolik yuz berdi: {e}")
 
-# Raqamli tugma bosilganda qo'shiqni yuklab berish
+# Raqamli tugma bosilganda qo'shiqni yuklab berish (10 talik ro'yxat o'chib ketmaydi)
 @dp.callback_query(F.data.startswith("song_idx_"))
 async def download_indexed_song(callback: types.CallbackQuery):
     user_id = callback.from_user.id
@@ -283,7 +282,7 @@ async def download_indexed_song(callback: types.CallbackQuery):
         
     song_url = USER_SEARCH_RESULTS[user_id][idx]
     
-    await callback.message.edit_text("⏳ Tanlangan qo'shiq yuklab olinmoqda, iltimos kuting...")
+    status_msg = await callback.message.answer("⏳ Tanlangan qo'shiq yuklab olinmoqda, iltimos kuting...")
     
     output_template = f"song_{user_id}.mp3"
     ydl_opts = {
@@ -319,9 +318,10 @@ async def download_indexed_song(callback: types.CallbackQuery):
         else:
             await callback.message.answer("❌ Qo'shiq faylini tayyorlab bo'lmadi.")
             
-        await callback.message.delete()
+        await status_msg.delete()
+        await callback.answer()
     except Exception as e:
-        await callback.message.edit_text(f"❌ Qo'shiqni yuklab bo'lmadi.\n\nXatolik: {e}")
+        await status_msg.edit_text(f"❌ Qo'shiqni yuklab bo'lmadi.\n\nXatolik: {e}")
 
 @dp.callback_query(F.data == "cancel_search")
 async def cancel_search_callback(callback: types.CallbackQuery):
