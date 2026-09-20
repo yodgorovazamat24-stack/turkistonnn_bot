@@ -149,7 +149,6 @@ async def stats_command(message: types.Message):
 def generate_search_keyboard(user_id: int, page: int, total_pages: int, current_items_count: int):
     keyboard_layout = []
     
-    # 1 dan 5 gacha yoki hozirgi sahifadagi elementlar soniga qarab raqamli tugmalar tuzamiz
     row1 = []
     row2 = []
     for i in range(1, current_items_count + 1):
@@ -162,7 +161,6 @@ def generate_search_keyboard(user_id: int, page: int, total_pages: int, current_
     if row1: keyboard_layout.append(row1)
     if row2: keyboard_layout.append(row2)
     
-    # Sahifalash tugmalari (Orqaga / Oldinga)
     nav_row = []
     if page > 0:
         nav_row.append(InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"song_page_{user_id}_{page-1}"))
@@ -175,7 +173,6 @@ def generate_search_keyboard(user_id: int, page: int, total_pages: int, current_
     if nav_row:
         keyboard_layout.append(nav_row)
         
-    # Bekor qilish tugmasi
     keyboard_layout.append([InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_search")])
     
     return InlineKeyboardMarkup(inline_keyboard=keyboard_layout)
@@ -198,7 +195,6 @@ def get_page_content(user_id: int, page: int):
 async def handle_all_messages(message: types.Message):
     user_id = message.from_user.id
     
-    # Obunani tekshirish
     is_subscribed = await check_subscriptions(user_id)
     if not is_subscribed:
         keyboard_buttons = []
@@ -218,7 +214,6 @@ async def handle_all_messages(message: types.Message):
 
     text = message.text.strip()
 
-    # 1. Havola bo'lsa -> Videoni yuklab berish
     if text.startswith("http://") or text.startswith("https://"):
         processing_msg = await message.answer("⏳ Video yuklab olinmoqda, iltimos kuting...")
         
@@ -252,7 +247,6 @@ async def handle_all_messages(message: types.Message):
         except Exception as e:
             await processing_msg.edit_text(f"❌ Videoni yuklab bo'lmadi. Havola noto'g'ri yoki hajmi juda katta.\n\nXatolik: {e}")
 
-    # 2. Raqam bo'lsa -> Kino kodini qidirish
     elif text.isdigit():
         movie_code = int(text)
         try:
@@ -268,7 +262,6 @@ async def handle_all_messages(message: types.Message):
                 parse_mode="Markdown"
             )
 
-    # 3. Oddiy matn bo'lsa -> SoundCloud orqali qo'shiq qidirish va ko'p sahifali qilib chiqarish
     else:
         processing_msg = await message.answer("🎵 Qo'shiqlar qidirilmoqda, iltimos kuting...")
         try:
@@ -319,7 +312,7 @@ async def handle_all_messages(message: types.Message):
                     video_ids.append(url)
                     video_titles.append(title)
                 
-                if len(video_ids) >= 15:  # Jami 15 tagacha toza qo'shiq yig'amiz (3 ta sahifa)
+                if len(video_ids) >= 15:
                     break
 
             if not video_ids:
@@ -330,7 +323,7 @@ async def handle_all_messages(message: types.Message):
             USER_SEARCH_TITLES[user_id] = video_titles
             
             page = 0
-            total_pages = (len(video_ids) + 4) // 5  # Har sahifada 5 tadan
+            total_pages = (len(video_ids) + 4) // 5
             
             page_urls, page_titles = get_page_content(user_id, page)
             
@@ -343,7 +336,6 @@ async def handle_all_messages(message: types.Message):
         except Exception as e:
             await processing_msg.edit_text(f"❌ Qidirishda xatolik yuz berdi: {e}")
 
-# Sahifalarni almashtirish (Callback)
 @dp.callback_query(F.data.startswith("song_page_"))
 async def change_song_page(callback: types.CallbackQuery):
     parts = callback.data.split("_")
@@ -376,12 +368,10 @@ async def change_song_page(callback: types.CallbackQuery):
         pass
     await callback.answer()
 
-# Keraksiz sahifa raqamini bosganda hech narsa qilmaslik uchun
 @dp.callback_query(F.data == "noop")
 async def noop_callback(callback: types.CallbackQuery):
     await callback.answer()
 
-# Raqamli tugma bosilganda qo'shiqni yuklab berish (Sahifani hisobga olgan holda)
 @dp.callback_query(F.data.startswith("song_idx_"))
 async def download_indexed_song(callback: types.CallbackQuery):
     parts = callback.data.split("_")
