@@ -170,7 +170,7 @@ async def handle_all_messages(message: types.Message):
 
     text = message.text.strip()
 
-    # 1. Havola bo'lsa -> Videoni yuklab berish (Instagram/TikTok uchun yt-dlp ishlatiladi)
+    # 1. Havola bo'lsa -> Videoni yuklab berish (Instagram/TikTok uchun)
     if text.startswith("http://") or text.startswith("https://"):
         processing_msg = await message.answer("⏳ Video yuklab olinmoqda, iltimos kuting...")
         
@@ -220,23 +220,27 @@ async def handle_all_messages(message: types.Message):
                 parse_mode="Markdown"
             )
 
-    # 3. Oddiy matn bo'lsa -> Telegram kanalidan qo'shiq qidirib topish
+    # 3. Oddiy matn bo'lsa -> Kanalga tashlangan boshqa botning qo'shiqlari orasidan qidirish
     else:
-        processing_msg = await message.answer("🎵 Telegram bazasidan qo'shiqlar qidirilmoqda...")
+        processing_msg = await message.answer("🎵 Kanaldan qo'shiqlar qidirilmoqda...")
         try:
             matched_audios = []
-            result_text = f"🔍 <b>{text}</b> bo'yicha Telegramdan topilganlar:\n\n"
-            audio_message_ids = []
+            result_text = f"🔍 <b>{text}</b> bo'yicha topilgan qo'shiqlar:\n\n"
+            audio_ids = []
 
-            # Kanalimizdagi so'nggi xabarlarni tekshirib chiqamiz (oxirgi 100 ta xabar ichidan)
+            # Kanalning oxirgi 150 ta xabarini tekshiramiz (boshqa bot tashlagan musiqalar)
             latest_msg_id = message.message_id 
             
-            for msg_id in range(max(1, latest_msg_id - 100), latest_msg_id + 1):
+            for msg_id in range(max(1, latest_msg_id - 150), latest_msg_id + 1):
                 try:
                     chat_msg = await bot.get_message(chat_id=CHANNEL_ID, message_id=msg_id)
                     if chat_msg.audio:
-                        audio_title = f"{chat_msg.audio.performer or ''} - {chat_msg.audio.title or ''}".lower()
-                        if text.lower() in audio_title or text.lower() in (chat_msg.caption or '').lower():
+                        performer = (chat_msg.audio.performer or "").lower()
+                        title = (chat_msg.audio.title or "").lower()
+                        caption = (chat_msg.caption or "").lower()
+                        
+                        # Foydalanuvchi yozgan so'z qo'shiq nomida, xonandada yoki post matnida bor-yo'qligini tekshiramiz
+                        if text.lower() in performer or text.lower() in title or text.lower() in caption:
                             matched_audios.append(chat_msg)
                             if len(matched_audios) >= 10:
                                 break
@@ -245,13 +249,12 @@ async def handle_all_messages(message: types.Message):
 
             if not matched_audios:
                 await processing_msg.edit_text(
-                    f"❌ <b>{text}</b> bo'yicha Telegram bazasidan qo'shiq topilmadi.\n\n"
-                    "Eslatma: Kanalga o'sha qo'shiqlar audio formatida yuklangan bo'lishi va bot kanalga admin bo'lishi kerak.",
+                    f"❌ <b>{text}</b> bo'yicha qo'shiq topilmadi.\n\n"
+                    "Eslatma: Kanalga o'sha qo'shiqlar tashlanganligiga ishonch hosil qiling.",
                     parse_mode="HTML"
                 )
                 return
 
-            audio_ids = []
             for idx, audio_msg in enumerate(matched_audios, 1):
                 performer = audio_msg.audio.performer or "Noma'lum"
                 title = audio_msg.audio.title or "Noma'lum qo'shiq"
@@ -275,7 +278,7 @@ async def handle_all_messages(message: types.Message):
         except Exception as e:
             await processing_msg.edit_text(f"❌ Qidirishda xatolik yuz berdi: {e}")
 
-# Telegram kanalidan tanlangan qo'shiqni yuborish
+# Tanlangan qo'shiqni foydalanuvchiga yuborish
 @dp.callback_query(F.data.startswith("tg_song_"))
 async def send_telegram_song(callback: types.CallbackQuery):
     user_id = callback.from_user.id
