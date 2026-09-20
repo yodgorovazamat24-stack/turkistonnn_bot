@@ -8,25 +8,24 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 TOKEN = "8596519118:AAFANuseBfzYNxeu9k6i95xv-O5yU9zPVGc"
-CHANNEL_ID = -1004452847162
+CHANNEL_ID = -1004452847162  # Kino bazasi joylashgan yopiq kanal
 
 # ================= SOZLAMALAR =================
 ADMIN_ID = 5144043830
 ADMIN_USERNAME = "@yodgorov_life"
-CARD_NUMBER = "5614 6810 0069 4020"  # Karta raqamingiz
-CARD_OWNER = "Yodgorov Azamatjon"      # Karta egasining ismi
-PREMIUM_PRICE = "5 000 so'm"           # Obuna narxi
-PREMIUM_DURATION = "1 hafta (7 kun)"   # Obuna muddati
 
-INSTAGRAM_LINK = "https://www.instagram.com/turkiston_kino"  # Instagram sahifangiz
+# Majburiy obuna qilinishi kerak bo'lgan kanallar
+REQUIRED_CHANNELS = [
+    {"username": "@zayafka154", "url": "https://t.me/zayafka154"},
+    {"username": "@zakafka289", "url": "https://t.me/zakafka289"}
+]
 # ==============================================
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Foydalanuvchilar to'plamlari
-PREMIUM_USERS = set()
-ALL_USERS = set()  # Jami start bosgan foydalanuvchilar bazasi
+# Jami start bosgan foydalanuvchilar bazasi
+ALL_USERS = set()
 
 # ========= RENDER UCHUN KICHIK VEB-SERVER =========
 app = Flask('')
@@ -45,95 +44,47 @@ def keep_alive():
     t.start()
 # =================================================
 
+# Foydalanuvchi kanallarga obuna bo'lganini tekshiruvchi funksiya
+async def check_subscriptions(user_id: int) -> bool:
+    for ch in REQUIRED_CHANNELS:
+        try:
+            member = await bot.get_chat_member(chat_id=ch["username"], user_id=user_id)
+            if member.status in ["left", "kicked"]:
+                return False
+        except Exception:
+            # Agar bot kanalga admin bo'lmasa yoki xatolik bo'lsa
+            return False
+    return True
+
 # /start komandasi va menyu
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
     user_id = message.from_user.id
-    ALL_USERS.add(user_id)  # Har safar start bosganda bazaga qo'shiladi
+    ALL_USERS.add(user_id)  
     
     if user_id == ADMIN_ID:
         await message.answer("🛠 *Admin ekanligingiz aniqlandi.*\nAdmin panelni ochish uchun 👉 /admin", parse_mode="Markdown")
 
-    # Kanal tugmasi olib tashlandi, faqat Instagram va boshqa tugmalar qoldi
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="🔍 Kino qidirish", callback_data="search_movie"),
-                InlineKeyboardButton(text="💎 1 Haftalik Premium", callback_data="buy_premium")
-            ],
-            [
-                InlineKeyboardButton(text="📸 Instagram sahifamiz", url=INSTAGRAM_LINK)
+                InlineKeyboardButton(text="🔍 Kino qidirish", callback_data="search_movie")
             ]
         ]
     )
     
     start_text = (
         "🎬 **Assalomu alaykum, Turkiston kino botiga xush kelibsiz!**\n\n"
-        "Har kuni yangi premyeralar, oilaviy va xavfsiz kinolar faqat bizda!\n\n"
-        "📌 **Bot imkoniyatlari:**\n"
-        "• 🔍 Kino kodi orqali tezkor qidiruv\n"
-        "• 🎬 Har kuni yangi eksklyuziv kino premyeralari\n"
-        "• 🚫 Ortiqcha va zararli reklamalarsiz\n\n"
+        "Kinoni ko'rish uchun quyidagi shartlarni bajarib, kino kodini yuboring.\n\n"
         "👉 *Marhamat, menyudan kerakli bo'limni tanlang!*"
     )
     
     await message.answer(start_text, parse_mode="Markdown", reply_markup=keyboard)
 
-# To'lov haqida ma'lumot qismi (7 kunlik)
-@dp.callback_query(F.data == "buy_premium")
-async def premium_callback(callback: types.CallbackQuery):
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="📸 Instagramda obuna bo'lish", url=INSTAGRAM_LINK)
-            ],
-            [
-                InlineKeyboardButton(text="👨‍💻 Adminga yozish", url=f"https://t.me/{ADMIN_USERNAME.lstrip('@')}")
-            ]
-        ]
-    )
-    text = (
-        "💎 **1 Haftalik Premium Obuna**\n\n"
-        f"⏳ Muddati: **{PREMIUM_DURATION}**\n"
-        f"💰 Narxi: **{PREMIUM_PRICE}**\n\n"
-        "🎁 *Bu obuna davomida har kuni qo'shiladigan yangi premyeralarni tomosha qiling!*\n\n"
-        "⚠️ *Shart:* Yangi kinolar va e'lonlarni ko'rib borish uchun Instagram sahifamizga obuna bo'ling!\n\n"
-        f"💳 To'lov uchun karta: `{CARD_NUMBER}`\n"
-        f"👤 Karta egasi: **{CARD_OWNER}**\n\n"
-        "✅ *To'lovni amalga oshirgach, chek rasmini shu yerga yuboring va adminga tashlab qo'ying!*"
-    )
-    await callback.message.answer(text, parse_mode="Markdown", reply_markup=keyboard)
-    await callback.answer()
-
 @dp.callback_query(F.data == "search_movie")
 async def search_callback(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    if user_id in PREMIUM_USERS:
-        await callback.message.answer("Marhamat, ko'rmoqchi bo'lgan kino kodini yuboring! ✍️")
-    else:
-        await callback.message.answer(
-            "🔒 **Kino qidirish uchun Premium obuna talab etiladi!**\n\n"
-            f"Obuna narxi ({PREMIUM_DURATION}): {PREMIUM_PRICE}. To'lov qilish uchun '💎 1 Haftalik Premium' tugmasini bosing.",
-            parse_mode="Markdown"
-        )
+    await callback.message.answer("Marhamat, ko'rmoqchi bo'lgan kino kodini yuboring! ✍️")
     await callback.answer()
-
-# Foydalanuvchi chek rasmini yuborganda
-@dp.message(F.photo)
-async def handle_payment_check(message: types.Message):
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="💬 Adminga yuborish", url=f"https://t.me/{ADMIN_USERNAME.lstrip('@')}")
-            ]
-        ]
-    )
-    await message.answer(
-        "📥 **Chekingiz qabul qilindi!**\n\n"
-        f"Iltimos, uni tezroq tasdiqlashlari uchun ushbu chekni adminga ham yuboring: {ADMIN_USERNAME}",
-        parse_mode="Markdown",
-        reply_markup=keyboard
-    )
 
 # ================= ADMIN PANEL BUYRUQLARI =================
 
@@ -144,63 +95,12 @@ async def admin_panel(message: types.Message):
     
     text = (
         "👑 **ADMIN PANEL**\n\n"
-        "Boshqaruv buyruqlari. Nusxalab, ID o'rniga foydalanuvchi raqamini yozib jo'nating:\n\n"
-        "✅ **Obuna qo'shish:**\n"
-        "`/addpremium ID`\n\n"
-        "❌ **Obunani olish:**\n"
-        "`/delpremium ID`\n\n"
         "📊 **Statistikani ko'rish:**\n"
         "`/stats`"
     )
     await message.answer(text, parse_mode="Markdown")
 
-# 1. Premium qo'shish
-@dp.message(Command("addpremium"))
-async def add_premium_command(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    
-    args = message.text.split()
-    if len(args) < 2:
-        await message.answer("⚠️ Xato! Ishlatish tartibi: `/addpremium ID`", parse_mode="Markdown")
-        return
-    
-    try:
-        target_user_id = int(args[1])
-        PREMIUM_USERS.add(target_user_id)
-        
-        await bot.send_message(
-            target_user_id,
-            "🎉 **Tabriklaymiz!** Admin to'lovingizni tasdiqladi va sizga **1 haftalik Premium obuna** berildi.\n"
-            "Endi kino kodlarini yuborib tomosha qilishingiz mumkin! 🎬",
-            parse_mode="Markdown"
-        )
-        await message.answer(f"✅ `{target_user_id}` muvaffaqiyatli Premium foydalanuvchilarga qo'shildi!", parse_mode="Markdown")
-    except Exception as e:
-        await message.answer(f"❌ Xatolik yuz berdi: `{e}`", parse_mode="Markdown")
-
-# 2. Premium'ni olib tashlash
-@dp.message(Command("delpremium"))
-async def del_premium_command(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    
-    args = message.text.split()
-    if len(args) < 2:
-        await message.answer("⚠️ Xato! Ishlatish tartibi: `/delpremium ID`", parse_mode="Markdown")
-        return
-    
-    try:
-        target_user_id = int(args[1])
-        if target_user_id in PREMIUM_USERS:
-            PREMIUM_USERS.remove(target_user_id)
-            await message.answer(f"❌ `{target_user_id}` premium ro'yxatidan olib tashlandi.", parse_mode="Markdown")
-        else:
-            await message.answer(f"⚠️ Bu foydalanuvchi premium ro'yxatida yo'q.", parse_mode="Markdown")
-    except Exception as e:
-        await message.answer(f"❌ Xatolik: `{e}`", parse_mode="Markdown")
-
-# 3. Statistika
+# Statistika (Jami obunachilar)
 @dp.message(Command("stats"))
 async def stats_command(message: types.Message):
     if message.from_user.id != ADMIN_ID:
@@ -208,26 +108,40 @@ async def stats_command(message: types.Message):
     
     text = (
         "📊 **BOT STATISTIKASI**\n\n"
-        f"👥 Jami obunachilar (Start bosganlar): **{len(ALL_USERS)} ta**\n"
-        f"💎 Premium obunadagilar: **{len(PREMIUM_USERS)} ta**"
+        f"👥 Jami obunachilar (Start bosganlar): **{len(ALL_USERS)} ta**"
     )
     await message.answer(text, parse_mode="Markdown")
 
 # ====================================================
 
-# Kino qidirish va xatoni tekshirish
+# Kino qidirish va obunani tekshirish
 @dp.message(F.text)
 async def get_movie(message: types.Message):
     user_id = message.from_user.id
     
-    if user_id not in PREMIUM_USERS:
+    # Kanallarga obuna bo'lganini tekshiramiz
+    is_subscribed = await check_subscriptions(user_id)
+    
+    if not is_subscribed:
+        # Obuna bo'lmagan bo'lsa, kanal tugmalarini chiqazamiz
+        keyboard_buttons = []
+        for idx, ch in enumerate(REQUIRED_CHANNELS, 1):
+            keyboard_buttons.append([InlineKeyboardButton(text=f"📢 {idx}-kanalga obuna bo'lish", url=ch["url"])])
+        
+        # Tekshirish tugmasi
+        keyboard_buttons.append([InlineKeyboardButton(text="🔄 Obunani tekshirish", callback_data="check_sub")])
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+        
         await message.answer(
-            "🔒 **Kino ko'rish uchun sizda Premium obuna yo'q!**\n\n"
-            f"Obuna narxi (1 hafta): {PREMIUM_PRICE}. To'lov qilib, chekni yuboring va adminga murojaat qiling.",
-            parse_mode="Markdown"
+            "⚠️ **Kino olish uchun quyidagi kanallarga obuna bo'lishingiz shart!**\n\n"
+            "Iltimos, kanallarga a'zo bo'lib, so'ng **'🔄 Obunani tekshirish'** tugmasini bosing:",
+            parse_mode="Markdown",
+            reply_markup=keyboard
         )
         return
 
+    # Agar obuna bo'lgan bo'lsa, kino kodini qidirib beradi
     code = message.text.strip()
     if code.isdigit():
         movie_code = int(code)
@@ -245,6 +159,17 @@ async def get_movie(message: types.Message):
             )
     else:
         await message.answer("⚠️ Iltimos, kino kodini faqat raqam ko'rinishida yuboring!")
+
+# Obunani qayta tekshirish tugmasi
+@dp.callback_query(F.data == "check_sub")
+async def recheck_subscription(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    is_subscribed = await check_subscriptions(user_id)
+    
+    if is_subscribed:
+        await callback.message.edit_text("✅ Tabriklaymiz, obuna tasdiqlandi! Endi istalgan kino kodini yuborishingiz mumkin.")
+    else:
+        await callback.answer("❌ Siz hali hamma kanallarga obuna bo'lmadingiz!", show_alert=True)
 
 async def main():
     logging.basicConfig(level=logging.INFO)
