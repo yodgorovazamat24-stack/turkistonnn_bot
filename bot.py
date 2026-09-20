@@ -222,6 +222,7 @@ async def handle_all_messages(message: types.Message):
         ydl_opts = {
             'format': 'best[filesize<50M]/best',
             'outtmpl': output_template,
+            'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
             'http_headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         }
 
@@ -269,13 +270,14 @@ async def handle_all_messages(message: types.Message):
             ydl_opts = {
                 'extract_flat': True,
                 'skip_download': True,
+                'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
                 'http_headers': {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                 }
             }
             def search_songs():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    return ydl.extract_info(f"scsearch30:{text}", download=False)
+                    return ydl.extract_info(f"ytsearch15:{text}", download=False)
             
             info = await asyncio.to_thread(search_songs)
             entries = info.get('entries', [])
@@ -289,25 +291,13 @@ async def handle_all_messages(message: types.Message):
             
             for entry in entries:
                 title = entry.get('title', '')
-                url = entry.get('webpage_url') or entry.get('url', '')
-                description = entry.get('description', '')
-                
-                combined_text = (title + " " + description + " " + str(url)).lower()
-                
-                spam_keywords = [
-                    't.me', 'telegram', 'a_toolsx', 'must join', 
-                    'subscribe', 'bot', 'channel', 'официальный канал', 
-                    'подпишись', 'реклама', 'кanal', 'obuna', 'join'
-                ]
-                
-                if any(word in combined_text for word in spam_keywords):
-                    continue
+                url = entry.get('url') or entry.get('webpage_url', '')
                 
                 if not title or not url:
                     continue
                 
                 if not str(url).startswith('http'):
-                    url = "https://soundcloud.com" + str(url)
+                    url = f"https://www.youtube.com/watch?v={url}"
                 
                 if url not in video_ids:
                     video_ids.append(url)
@@ -317,7 +307,7 @@ async def handle_all_messages(message: types.Message):
                     break
 
             if not video_ids:
-                await processing_msg.edit_text("❌ Afsuski, bu so'rov bo'yicha toza qo'shiqlar topilmadi.")
+                await processing_msg.edit_text("❌ Afsuski, bu so'rov bo'yicha qo'shiqlar topilmadi.")
                 return
 
             USER_SEARCH_RESULTS[user_id] = video_ids
@@ -403,6 +393,7 @@ async def download_indexed_song(callback: types.CallbackQuery):
     output_template = f"song_{current_user_id}.mp3"
     ydl_opts = {
         'format': 'bestaudio/best',
+        'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
         'outtmpl': output_template.replace('.mp3', '.%(ext)s'),
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
