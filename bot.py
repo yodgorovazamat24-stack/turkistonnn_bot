@@ -79,7 +79,7 @@ async def start_handler(message: types.Message):
         "🎬 **Assalomu alaykum, Turkiston botiga xush kelibsiz!**\n\n"
         "Quyidagi menyudan o'zingizga kerakli xizmatni tanlang:\n\n"
         "• *Kino qidirish* — Kino kodini yuborish orqali kinolarni oling.\n"
-        "• *Video yuklab olish* — YouTube, Instagram va boshqa tarmoqlardan video havolasini yuboring.\n"
+        "• *Video yuklab olish* — Instagram va TikTok tarmoqlaridan video havolasini yuboring.\n"
         "• *Qo'shiq qidirish* — Musiqa yoki qo'shiq nomini yuboring."
     )
     
@@ -103,7 +103,7 @@ async def download_video_callback(callback: types.CallbackQuery):
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_start")]
         ]
     )
-    await callback.message.edit_text("📥 Menga **YouTube** yoki **Instagram** video havolasini (linkini) yuboring, men uni sizga yuklab beraman!", parse_mode="Markdown", reply_markup=keyboard)
+    await callback.message.edit_text("📥 Menga **Instagram** yoki **TikTok** video havolasini (linkini) yuboring, men uni sizga yuklab beraman!", parse_mode="Markdown", reply_markup=keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "search_song_menu")
@@ -113,7 +113,7 @@ async def search_song_callback(callback: types.CallbackQuery):
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_start")]
         ]
     )
-    await callback.message.edit_text("🎵 Qidirayotgan qo'shig'ingiz yoki musiqangiz nomini (artist va nomini) yuboring!", parse_mode="Markdown", reply_markup=keyboard)
+    await callback.message.edit_text("🎵 Qidirayotgan qo'shig'ingiz yoki xonanda nomini yuboring (masalan: *Konsta* yoki *Yurak*):", parse_mode="Markdown", reply_markup=keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "back_to_start")
@@ -173,14 +173,16 @@ async def handle_all_messages(message: types.Message):
         
         output_template = "video.mp4"
         ydl_opts = {
-            'format': 'best',
+            'format': 'best[filesize<50M]/best',
             'outtmpl': output_template,
-            'max_filesize': 50 * 1024 * 1024,  # Telegram uchun 50MB gacha
         }
 
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([text])
+            def download_video():
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([text])
+            
+            await asyncio.to_thread(download_video)
             
             video_file = types.FSInputFile(output_template)
         
@@ -208,7 +210,7 @@ async def handle_all_messages(message: types.Message):
                 chat_id=message.chat.id,
                 from_chat_id=CHANNEL_ID,
                 message_id=movie_code,
-                protect_content=True  # 👈 Boshqalarga ulashish va saqlashni bloklash
+                protect_content=True  # Boshqalarga ulashish va saqlashni bloklash
             )
         except Exception as e:
             await message.answer(
@@ -216,13 +218,81 @@ async def handle_all_messages(message: types.Message):
                 parse_mode="Markdown"
             )
 
-    # 3. Agar oddiy matn (qo'shiq nomi yoki boshqa so'z) bo'lsa
+    # 3. Agar oddiy matn bo'lsa -> Qo'shiq qidirish (10 ta variant chiqarish)
     else:
-        await message.answer(
-            f"🔍 Siz yubordingiz: *{text}*\n\n"
-            "Hozircha qo'shiq qidirish bazasi ulanmoqda. Tez orada qo'shiqni ham topib beradigan qilamiz! 🎵",
-            parse_mode="Markdown"
-        )
+        processing_msg = await message.answer("🎵 Qo'shiqlar qidirilmoqda, iltimos kuting...")
+        try:
+            ydl_opts = {
+                'extract_flat': True,
+                'skip_download': True,
+            }
+            def search_songs():
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    return ydl.extract_info(f"ytsearch10:{text}", download=False)
+            
+            info = await asyncio.to_thread(search_songs)
+            entries = info.get('entries', [])
+            
+            if not entries:
+                await processing_msg.edit_text("❌ Hech qanday qo'shiq topilmadi.")
+                return
+                
+            keyboard_buttons = []
+            for entry in entries[:10]:
+                title = entry.get('title', 'Nomaʼlum qoʻshiq')
+                video_id = entry.get('id')
+                if title and video_id:
+                    short_title = title[:40] + "..." if len(title) > 40 else title
+                    keyboard_buttons.append([InlineKeyboardButton(text=f"🎵 {short_title}", callback_data=f"song_{video_id}")])
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+            await processing_msg.edit_text(f"🔍 *{text}* bo'yicha topilgan qo'shiqlar:", parse_mode="Markdown", reply_markup=keyboard)
+        except Exception as e:
+            await processing_msg.edit_text(f"❌ Qidirishda xatolik yuz berdi: {e}")
+
+# Qo'shiq tugmasi bosilganda yuklab berish
+@dp.callback_query(F.data.startswith("song_"))
+async def download_song_callback(callback: types.CallbackQuery):
+    video_id = callback.data.split("_")[1]
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    
+    await callback.message.edit_text("⏳ Tanlangan qo'shiq yuklab olinmoqda, iltimos kuting...")
+    
+    output_template = f"song_{video_id}.mp3"
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': output_template.replace('.mp3', '.%(ext)s'),
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'max_filesize': 50 * 1024 * 1024,
+    }
+    
+    try:
+        def download_audio():
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+        
+        await asyncio.to_thread(download_audio)
+        
+        actual_file = f"song_{video_id}.mp3"
+        
+        if os.path.exists(actual_file):
+            audio_file = types.FSInputFile(actual_file)
+            caption_text = (
+                "🎵 *Marhamat, siz so'ragan qo'shiq!*\n\n"
+                "📥 *Musiqa yuklab oluvchi bot: @turkiston_bot*"
+            )
+            await callback.message.answer_audio(audio=audio_file, caption=caption_text, parse_mode="Markdown")
+            os.remove(actual_file)
+        else:
+            await callback.message.answer("❌ Qo'shiq faylini tayyorlab bo'lmadi.")
+            
+        await callback.message.delete()
+    except Exception as e:
+        await callback.message.edit_text(f"❌ Qo'shiqni yuklab bo'lmadi. Hajmi katta yoki xatolik yuz berdi.\n\nXatolik: {e}")
 
 @dp.callback_query(F.data == "check_sub")
 async def recheck_subscription(callback: types.CallbackQuery):
