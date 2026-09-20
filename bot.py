@@ -28,7 +28,7 @@ dp = Dispatcher()
 # Jami start bosgan foydalanuvchilar bazasi
 ALL_USERS = set()
 
-# Foydalanuvchilarning oxirgi qidiruv natijalarini vaqtincha saqlash uchun (user_id: [video_id1, video_id2, ...])
+# Foydalanuvchilarning oxirgi qidiruv natijalarini saqlash uchun
 USER_SEARCH_RESULTS = {}
 
 # ========= RENDER UCHUN KICHIK VEB-SERVER =========
@@ -170,7 +170,7 @@ async def handle_all_messages(message: types.Message):
 
     text = message.text.strip()
 
-    # 1. Agar yuborilgan matn havola (link) bo'lsa -> Videoni yuklab berish
+    # 1. Havola bo'lsa -> Videoni yuklab berish
     if text.startswith("http://") or text.startswith("https://"):
         processing_msg = await message.answer("⏳ Video yuklab olinmoqda, iltimos kuting...")
         
@@ -187,9 +187,8 @@ async def handle_all_messages(message: types.Message):
                     ydl.download([text])
             
             await asyncio.to_thread(download_video)
-            
             video_file = types.FSInputFile(output_template)
-        
+            
             caption_text = (
                 "✅ **Marhamat, siz so'ragan video!**\n\n"
                 "📥 *Video yuklab oluvchi bot: @turkiston_bot*\n"
@@ -205,7 +204,7 @@ async def handle_all_messages(message: types.Message):
         except Exception as e:
             await processing_msg.edit_text(f"❌ Videoni yuklab bo'lmadi. Havola noto'g'ri yoki hajmi juda katta.\n\nXatolik: {e}")
 
-    # 2. Agar yuborilgan matn raqam bo'lsa -> Kino kodini qidirish
+    # 2. Raqam bo'lsa -> Kino kodini qidirish
     elif text.isdigit():
         movie_code = int(text)
         try:
@@ -221,14 +220,17 @@ async def handle_all_messages(message: types.Message):
                 parse_mode="Markdown"
             )
 
-    # 3. Agar oddiy matn bo'lsa -> Qo'shiq qidirish (Tarona Bot uslubida 10 talik ro'yxat va raqamli tugmalar)
+    # 3. Oddiy matn bo'lsa -> Qo'shiq qidirish (Tarona Bot uslubida)
     else:
         processing_msg = await message.answer("🎵 Qo'shiqlar qidirilmoqda, iltimos kuting...")
         try:
             ydl_opts = {
                 'extract_flat': True,
                 'skip_download': True,
-                'http_headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+                'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
             }
             def search_songs():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -241,7 +243,6 @@ async def handle_all_messages(message: types.Message):
                 await processing_msg.edit_text("❌ Hech qanday qo'shiq topilmadi.")
                 return
                 
-            # Ro'yxatni matn shaklida shakllantirish
             result_text = f"🔍 <b>{text}</b>\n\n"
             video_ids = []
             
@@ -258,10 +259,8 @@ async def handle_all_messages(message: types.Message):
                 if video_id:
                     video_ids.append(video_id)
             
-            # Foydalanuvchi ID bo'yicha topilgan video ID larni saqlaymiz
             USER_SEARCH_RESULTS[user_id] = video_ids
             
-            # 1 dan 10 gacha raqamlangan tugmalar qatorini yasash
             row1 = [InlineKeyboardButton(text=str(i), callback_data=f"song_idx_{i-1}") for i in range(1, 6) if i <= len(video_ids)]
             row2 = [InlineKeyboardButton(text=str(i), callback_data=f"song_idx_{i-1}") for i in range(6, 11) if i <= len(video_ids)]
             cancel_row = [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_search")]
@@ -277,7 +276,7 @@ async def handle_all_messages(message: types.Message):
         except Exception as e:
             await processing_msg.edit_text(f"❌ Qidirishda xatolik yuz berdi: {e}")
 
-# Raqamli tugma bosilganda tegishli qo'shiqni yuklab berish
+# Raqamli tugma bosilganda qo'shiqni yuklab berish
 @dp.callback_query(F.data.startswith("song_idx_"))
 async def download_indexed_song(callback: types.CallbackQuery):
     user_id = callback.from_user.id
@@ -302,7 +301,11 @@ async def download_indexed_song(callback: types.CallbackQuery):
             'preferredquality': '192',
         }],
         'max_filesize': 50 * 1024 * 1024,
-        'http_headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
     }
     
     try:
@@ -311,13 +314,12 @@ async def download_indexed_song(callback: types.CallbackQuery):
                 ydl.download([url])
         
         await asyncio.to_thread(download_audio)
-        
         actual_file = f"song_{video_id}.mp3"
         
         if os.path.exists(actual_file):
             audio_file = types.FSInputFile(actual_file)
             caption_text = (
-                "🎵 *Marhamat, siz so'ragan qo'shiq!*\n\n"
+                "🎵 **Marhamat, siz so'ragan qo'shiq!**\n\n"
                 "📥 *Musiqa yuklab oluvchi bot: @turkiston_bot*"
             )
             await callback.message.answer_audio(audio=audio_file, caption=caption_text, parse_mode="Markdown")
@@ -327,7 +329,8 @@ async def download_indexed_song(callback: types.CallbackQuery):
             
         await callback.message.delete()
     except Exception as e:
-        await callback.message.edit_text(f"❌ Qo'shiqni yuklab bo'lmadi. Hajmi katta yoki xatolik yuz berdi.\n\nXatolik: {e}")
+    # YouTube blokirovkasini oldini oluvchi optimizatsiyalar qo'shildi
+        await callback.message.edit_text(f"❌ Qo'shiqni yuklab bo'lmadi. YouTube himoyasi faol.\n\nXatolik: {e}")
 
 @dp.callback_query(F.data == "cancel_search")
 async def cancel_search_callback(callback: types.CallbackQuery):
