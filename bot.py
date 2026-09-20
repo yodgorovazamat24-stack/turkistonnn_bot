@@ -68,6 +68,9 @@ async def start_handler(message: types.Message):
         inline_keyboard=[
             [
                 InlineKeyboardButton(text="🔍 Kino qidirish", callback_data="search_movie")
+            ],
+            [
+                InlineKeyboardButton(text="📢 Reklama berish", callback_data="reklama_info")
             ]
         ]
     )
@@ -83,6 +86,18 @@ async def start_handler(message: types.Message):
 @dp.callback_query(F.data == "search_movie")
 async def search_callback(callback: types.CallbackQuery):
     await callback.message.answer("Marhamat, ko'rmoqchi bo'lgan kino kodini yuboring! ✍️")
+    await callback.answer()
+
+# Reklama bo'limi ma'lumotlari
+@dp.callback_query(F.data == "reklama_info")
+async def reklama_callback(callback: types.CallbackQuery):
+    text = (
+        "📢 **Reklama Xizmati**\n\n"
+        "Botimizda o'z kanalingiz, guruhingiz yoki biznesingizni reklama qilishni istaysizmi?\n\n"
+        f"👨‍💻 **Admin bilan bog'lanish:** {ADMIN_USERNAME}\n"
+        "Murojaat qiling va qulay shartlar asosida reklama joylashtiring! 🚀"
+    )
+    await callback.message.answer(text, parse_mode="Markdown")
     await callback.answer()
 
 # ================= ADMIN PANEL BUYRUQLARI =================
