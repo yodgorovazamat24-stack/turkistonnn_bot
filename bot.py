@@ -14,12 +14,6 @@ CHANNEL_ID = -1004452847162  # Kino bazasi joylashgan yopiq kanal
 # ================= SOZLAMALAR =================
 ADMIN_ID = 5144043830
 ADMIN_USERNAME = "@yodgorov_life"
-
-# Majburiy obuna qilinishi kerak bo'lgan kanallar
-REQUIRED_CHANNELS = [
-    {"username": "@zayafka154", "url": "https://t.me/zayafka154"},
-    {"username": "@zakafka289", "url": "https://t.me/zakafka289"}
-]
 # ==============================================
 
 bot = Bot(token=TOKEN)
@@ -49,17 +43,6 @@ def keep_alive():
     t.daemon = True
     t.start()
 # =================================================
-
-# Foydalanuvchi kanallarga obuna bo'lganini tekshiruvchi funksiya
-async def check_subscriptions(user_id: int) -> bool:
-    for ch in REQUIRED_CHANNELS:
-        try:
-            member = await bot.get_chat_member(chat_id=ch["username"], user_id=user_id)
-            if member.status in ["left", "kicked"]:
-                return False
-        except Exception:
-            return False
-    return True
 
 # Asosiy menyu tugmalari
 def get_main_menu():
@@ -195,24 +178,6 @@ def get_page_content(user_id: int, page: int):
 @dp.message(F.text)
 async def handle_all_messages(message: types.Message):
     user_id = message.from_user.id
-    
-    is_subscribed = await check_subscriptions(user_id)
-    if not is_subscribed:
-        keyboard_buttons = []
-        for idx, ch in enumerate(REQUIRED_CHANNELS, 1):
-            keyboard_buttons.append([InlineKeyboardButton(text=f"📢 {idx}-kanalga obuna bo'lish", url=ch["url"])])
-        
-        keyboard_buttons.append([InlineKeyboardButton(text="🔄 Obunani tekshirish", callback_data="check_sub")])
-        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
-        
-        await message.answer(
-            "⚠️ **Botdan foydalanish uchun quyidagi kanallarga obuna bo'lishingiz shart!**\n\n"
-            "Iltimos, kanallarga a'zo bo'lib, so'ng **'🔄 Obunani tekshirish'** tugmasini bosing:",
-            parse_mode="Markdown",
-            reply_markup=keyboard
-        )
-        return
-
     text = message.text.strip()
 
     if text.startswith("http://") or text.startswith("https://"):
@@ -276,7 +241,6 @@ async def handle_all_messages(message: types.Message):
             }
             def search_songs():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    # SoundCloud qidiruvi (scsearch30)
                     return ydl.extract_info(f"scsearch30:{text}", download=False)
             
             info = await asyncio.to_thread(search_songs)
@@ -292,18 +256,6 @@ async def handle_all_messages(message: types.Message):
             for entry in entries:
                 title = entry.get('title', '')
                 url = entry.get('webpage_url') or entry.get('url', '')
-                description = entry.get('description', '')
-                
-                combined_text = (title + " " + description + " " + str(url)).lower()
-                
-                spam_keywords = [
-                    't.me', 'telegram', 'a_toolsx', 'must join', 
-                    'subscribe', 'bot', 'channel', 'официальный канал', 
-                    'подпишись', 'реклама', 'кanal', 'obuna', 'join'
-                ]
-                
-                if any(word in combined_text for word in spam_keywords):
-                    continue
                 
                 if not title or not url:
                     continue
@@ -319,7 +271,7 @@ async def handle_all_messages(message: types.Message):
                     break
 
             if not video_ids:
-                await processing_msg.edit_text("❌ Afsuski, bu so'rov bo'yicha toza qo'shiqlar topilmadi.")
+                await processing_msg.edit_text("❌ Afsuski, bu so'rov bo'yicha qo'shiqlar topilmadi.")
                 return
 
             USER_SEARCH_RESULTS[user_id] = video_ids
@@ -445,16 +397,6 @@ async def download_indexed_song(callback: types.CallbackQuery):
 async def cancel_search_callback(callback: types.CallbackQuery):
     await callback.message.edit_text("❌ Qidiruv bekor qilindi.")
     await callback.answer()
-
-@dp.callback_query(F.data == "check_sub")
-async def recheck_subscription(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    is_subscribed = await check_subscriptions(user_id)
-    
-    if is_subscribed:
-        await callback.message.edit_text("✅ Tabriklaymiz, obuna tasdiqlandi! Endi istalgan xizmatdan foydalanishingiz mumkin.", reply_markup=get_main_menu())
-    else:
-        await callback.answer("❌ Siz hali hamma kanallarga obuna bo'lmadingiz!", show_alert=True)
 
 async def main():
     logging.basicConfig(level=logging.INFO)
