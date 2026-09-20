@@ -167,7 +167,6 @@ async def recheck_subscription(callback: types.CallbackQuery):
 
 async def main():
     logging.basicConfig(level=logging.INFO)
-    # Eski webhookni tozalab tashlash (Xatolikni oldini oladi)
     await bot.delete_webhook(drop_pending_updates=True)
     print("Bot mukammal holatda ishga tushdi...")
     await dp.start_polling(bot)
