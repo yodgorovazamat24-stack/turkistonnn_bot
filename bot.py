@@ -220,9 +220,9 @@ async def handle_all_messages(message: types.Message):
                 parse_mode="Markdown"
             )
 
-    # 3. Oddiy matn bo'lsa -> Yandex Music orqali qo'shiq qidirish
+    # 3. Oddiy matn bo'lsa -> SoundCloud orqali qo'shiq qidirish
     else:
-        processing_msg = await message.answer("🎵 Yandex bazasidan qo'shiqlar qidirilmoqda, iltimos kuting...")
+        processing_msg = await message.answer("🎵 Qo'shiqlar qidirilmoqda, iltimos kuting...")
         try:
             ydl_opts = {
                 'extract_flat': True,
@@ -233,25 +233,17 @@ async def handle_all_messages(message: types.Message):
             }
             def search_songs():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    # Yandex Music orqali qidirish uchun kalit so'z
-                    return ydl.extract_info(f"yandexmusicsearch:10:{text}", download=False)
+                    # SoundCloud orqali qidirish (serverlarni bloklamaydi)
+                    return ydl.extract_info(f"scsearch10:{text}", download=False)
             
             info = await asyncio.to_thread(search_songs)
             entries = info.get('entries', [])
-            
-            if not entries:
-                # Agar Yandex Music'dan topilmasa, umumiy yandex qidiruvi orqali urinamiz
-                def search_fallback():
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        return ydl.extract_info(f"yandexsearch:10:{text}", download=False)
-                info = await asyncio.to_thread(search_fallback)
-                entries = info.get('entries', [])
 
             if not entries:
-                await processing_msg.edit_text("❌ Yandex bazasidan hech qanday qo'shiq topilmadi.")
+                await processing_msg.edit_text("❌ Hech qanday qo'shiq topilmadi.")
                 return
                 
-            result_text = f"🔍 <b>Yandex bo'yicha: {text}</b>\n\n"
+            result_text = f"🔍 <b>Qidiruv natijasi: {text}</b>\n\n"
             video_ids = []
             
             for idx, entry in enumerate(entries[:10], 1):
