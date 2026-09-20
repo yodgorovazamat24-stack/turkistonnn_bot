@@ -28,6 +28,9 @@ dp = Dispatcher()
 # Jami start bosgan foydalanuvchilar bazasi
 ALL_USERS = set()
 
+# Foydalanuvchilarning oxirgi qidiruv natijalarini vaqtincha saqlash uchun (user_id: [video_id1, video_id2, ...])
+USER_SEARCH_RESULTS = {}
+
 # ========= RENDER UCHUN KICHIK VEB-SERVER =========
 app = Flask('')
 
@@ -113,7 +116,7 @@ async def search_song_callback(callback: types.CallbackQuery):
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_start")]
         ]
     )
-    await callback.message.edit_text("🎵 Qidirayotgan qo'shig'ingiz yoki xonanda nomini yuboring (masalan: *Konsta* yoki *Yurak*):", parse_mode="Markdown", reply_markup=keyboard)
+    await callback.message.edit_text("🎵 Qidirayotgan qo'shig'ingiz yoki xonanda nomini yuboring (masalan: *Benom* yoki *Konsta*):", parse_mode="Markdown", reply_markup=keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "back_to_start")
@@ -175,6 +178,7 @@ async def handle_all_messages(message: types.Message):
         ydl_opts = {
             'format': 'best[filesize<50M]/best',
             'outtmpl': output_template,
+            'http_headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         }
 
         try:
@@ -186,7 +190,6 @@ async def handle_all_messages(message: types.Message):
             
             video_file = types.FSInputFile(output_template)
         
-            # Reklama matni va bot havolasi
             caption_text = (
                 "✅ **Marhamat, siz so'ragan video!**\n\n"
                 "📥 *Video yuklab oluvchi bot: @turkiston_bot*\n"
@@ -202,7 +205,7 @@ async def handle_all_messages(message: types.Message):
         except Exception as e:
             await processing_msg.edit_text(f"❌ Videoni yuklab bo'lmadi. Havola noto'g'ri yoki hajmi juda katta.\n\nXatolik: {e}")
 
-    # 2. Agar yuborilgan matn raqam bo'lsa -> Kino kodini qidirish (Forward qilib bo'lmaydigan qilib)
+    # 2. Agar yuborilgan matn raqam bo'lsa -> Kino kodini qidirish
     elif text.isdigit():
         movie_code = int(text)
         try:
@@ -210,7 +213,7 @@ async def handle_all_messages(message: types.Message):
                 chat_id=message.chat.id,
                 from_chat_id=CHANNEL_ID,
                 message_id=movie_code,
-                protect_content=True  # Boshqalarga ulashish va saqlashni bloklash
+                protect_content=True
             )
         except Exception as e:
             await message.answer(
@@ -218,13 +221,14 @@ async def handle_all_messages(message: types.Message):
                 parse_mode="Markdown"
             )
 
-    # 3. Agar oddiy matn bo'lsa -> Qo'shiq qidirish (10 ta variant chiqarish)
+    # 3. Agar oddiy matn bo'lsa -> Qo'shiq qidirish (Tarona Bot uslubida 10 talik ro'yxat va raqamli tugmalar)
     else:
         processing_msg = await message.answer("🎵 Qo'shiqlar qidirilmoqda, iltimos kuting...")
         try:
             ydl_opts = {
                 'extract_flat': True,
                 'skip_download': True,
+                'http_headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
             }
             def search_songs():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -237,23 +241,53 @@ async def handle_all_messages(message: types.Message):
                 await processing_msg.edit_text("❌ Hech qanday qo'shiq topilmadi.")
                 return
                 
-            keyboard_buttons = []
-            for entry in entries[:10]:
+            # Ro'yxatni matn shaklida shakllantirish
+            result_text = f"🔍 <b>{text}</b>\n\n"
+            video_ids = []
+            
+            for idx, entry in enumerate(entries[:10], 1):
                 title = entry.get('title', 'Nomaʼlum qoʻshiq')
                 video_id = entry.get('id')
-                if title and video_id:
-                    short_title = title[:40] + "..." if len(title) > 40 else title
-                    keyboard_buttons.append([InlineKeyboardButton(text=f"🎵 {short_title}", callback_data=f"song_{video_id}")])
+                duration = entry.get('duration_string', '')
+                
+                if duration:
+                    result_text += f"<b>{idx}.</b> {title} — <i>{duration}</i>\n"
+                else:
+                    result_text += f"<b>{idx}.</b> {title}\n"
+                    
+                if video_id:
+                    video_ids.append(video_id)
             
-            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
-            await processing_msg.edit_text(f"🔍 *{text}* bo'yicha topilgan qo'shiqlar:", parse_mode="Markdown", reply_markup=keyboard)
+            # Foydalanuvchi ID bo'yicha topilgan video ID larni saqlaymiz
+            USER_SEARCH_RESULTS[user_id] = video_ids
+            
+            # 1 dan 10 gacha raqamlangan tugmalar qatorini yasash
+            row1 = [InlineKeyboardButton(text=str(i), callback_data=f"song_idx_{i-1}") for i in range(1, 6) if i <= len(video_ids)]
+            row2 = [InlineKeyboardButton(text=str(i), callback_data=f"song_idx_{i-1}") for i in range(6, 11) if i <= len(video_ids)]
+            cancel_row = [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_search")]
+            
+            keyboard_layout = []
+            if row1: keyboard_layout.append(row1)
+            if row2: keyboard_layout.append(row2)
+            keyboard_layout.append(cancel_row)
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_layout)
+            
+            await processing_msg.edit_text(result_text, parse_mode="HTML", reply_markup=keyboard)
         except Exception as e:
             await processing_msg.edit_text(f"❌ Qidirishda xatolik yuz berdi: {e}")
 
-# Qo'shiq tugmasi bosilganda yuklab berish
-@dp.callback_query(F.data.startswith("song_"))
-async def download_song_callback(callback: types.CallbackQuery):
-    video_id = callback.data.split("_")[1]
+# Raqamli tugma bosilganda tegishli qo'shiqni yuklab berish
+@dp.callback_query(F.data.startswith("song_idx_"))
+async def download_indexed_song(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    idx = int(callback.data.split("_")[2])
+    
+    if user_id not in USER_SEARCH_RESULTS or idx >= len(USER_SEARCH_RESULTS[user_id]):
+        await callback.answer("❌ Xatolik: Qidiruv eskirgan. Iltimos, qo'shiqni qaytadan qidiring.", show_alert=True)
+        return
+        
+    video_id = USER_SEARCH_RESULTS[user_id][idx]
     url = f"https://www.youtube.com/watch?v={video_id}"
     
     await callback.message.edit_text("⏳ Tanlangan qo'shiq yuklab olinmoqda, iltimos kuting...")
@@ -268,6 +302,7 @@ async def download_song_callback(callback: types.CallbackQuery):
             'preferredquality': '192',
         }],
         'max_filesize': 50 * 1024 * 1024,
+        'http_headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
     }
     
     try:
@@ -293,6 +328,11 @@ async def download_song_callback(callback: types.CallbackQuery):
         await callback.message.delete()
     except Exception as e:
         await callback.message.edit_text(f"❌ Qo'shiqni yuklab bo'lmadi. Hajmi katta yoki xatolik yuz berdi.\n\nXatolik: {e}")
+
+@dp.callback_query(F.data == "cancel_search")
+async def cancel_search_callback(callback: types.CallbackQuery):
+    await callback.message.edit_text("❌ Qidiruv bekor qilindi.")
+    await callback.answer()
 
 @dp.callback_query(F.data == "check_sub")
 async def recheck_subscription(callback: types.CallbackQuery):
