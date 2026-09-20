@@ -31,6 +31,7 @@ ALL_USERS = set()
 # Foydalanuvchilarning oxirgi qidiruv natijalarini va qo'shiq nomlarini saqlash uchun
 USER_SEARCH_RESULTS = {}
 USER_SEARCH_TITLES = {}
+USER_CURRENT_PAGE = {}
 
 # ========= RENDER UCHUN KICHIK VEB-SERVER =========
 app = Flask('')
@@ -152,7 +153,7 @@ def generate_search_keyboard(user_id: int, page: int, total_pages: int, current_
     row1 = []
     row2 = []
     for i in range(1, current_items_count + 1):
-        btn = InlineKeyboardButton(text=str(i), callback_data=f"song_idx_{user_id}_{page}_{i-1}")
+        btn = InlineKeyboardButton(text=str(i), callback_data=f"song_idx_{user_id}_{i-1}")
         if i <= 5:
             row1.append(btn)
         else:
@@ -323,6 +324,7 @@ async def handle_all_messages(message: types.Message):
             USER_SEARCH_TITLES[user_id] = video_titles
             
             page = 0
+            USER_CURRENT_PAGE[user_id] = page
             total_pages = (len(video_ids) + 4) // 5
             
             page_urls, page_titles = get_page_content(user_id, page)
@@ -353,6 +355,7 @@ async def change_song_page(callback: types.CallbackQuery):
         await callback.answer("❌ Qidiruv muddati tugagan. Qaytadan qidiring.", show_alert=True)
         return
         
+    USER_CURRENT_PAGE[target_user_id] = page
     total_pages = (len(urls) + 4) // 5
     page_urls, page_titles = get_page_content(target_user_id, page)
     
@@ -376,8 +379,7 @@ async def noop_callback(callback: types.CallbackQuery):
 async def download_indexed_song(callback: types.CallbackQuery):
     parts = callback.data.split("_")
     target_user_id = int(parts[2])
-    page = int(parts[3])
-    local_idx = int(parts[4])
+    local_idx = int(parts[3])
     
     current_user_id = callback.from_user.id
     
@@ -386,7 +388,9 @@ async def download_indexed_song(callback: types.CallbackQuery):
         return
 
     urls = USER_SEARCH_RESULTS.get(current_user_id, [])
-    global_idx = (page * 5) + local_idx
+    current_page = USER_CURRENT_PAGE.get(current_user_id, 0)
+    
+    global_idx = (current_page * 5) + local_idx
     
     if current_user_id not in USER_SEARCH_RESULTS or global_idx >= len(urls):
         await callback.answer("❌ Qidiruv eskirgan. Iltimos, qo'shiqni qaytadan qidiring.", show_alert=True)
