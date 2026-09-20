@@ -247,7 +247,11 @@ async def handle_all_messages(message: types.Message):
             
             for idx, entry in enumerate(entries[:10], 1):
                 title = entry.get('title', 'Nomaʼlum qoʻshiq')
-                url = entry.get('url') or entry.get('id')
+                url = entry.get('webpage_url') or entry.get('url')
+                
+                # Agar havola to'liq bo'lmasa, to'g'rilaymiz
+                if url and not url.startswith('http'):
+                    url = "https://soundcloud.com" + url
                 
                 result_text += f"<b>{idx}.</b> {title}\n"
                 if url:
@@ -255,8 +259,8 @@ async def handle_all_messages(message: types.Message):
             
             USER_SEARCH_RESULTS[user_id] = video_ids
             
-            row1 = [InlineKeyboardButton(text=str(i), callback_data=f"song_idx_{i-1}") for i in range(1, 6) if i <= len(video_ids)]
-            row2 = [InlineKeyboardButton(text=str(i), callback_data=f"song_idx_{i-1}") for i in range(6, 11) if i <= len(video_ids)]
+            row1 = [InlineKeyboardButton(text=str(i), callback_data=f"song_idx_{user_id}_{i-1}") for i in range(1, 6) if i <= len(video_ids)]
+            row2 = [InlineKeyboardButton(text=str(i), callback_data=f"song_idx_{user_id}_{i-1}") for i in range(6, 11) if i <= len(video_ids)]
             cancel_row = [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_search")]
             
             keyboard_layout = []
@@ -270,21 +274,28 @@ async def handle_all_messages(message: types.Message):
         except Exception as e:
             await processing_msg.edit_text(f"❌ Qidirishda xatolik yuz berdi: {e}")
 
-# Raqamli tugma bosilganda qo'shiqni yuklab berish (10 talik ro'yxat o'chib ketmaydi)
+# Raqamli tugma bosilganda qo'shiqni yuklab berish
 @dp.callback_query(F.data.startswith("song_idx_"))
 async def download_indexed_song(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    idx = int(callback.data.split("_")[2])
+    parts = callback.data.split("_")
+    target_user_id = int(parts[2])
+    idx = int(parts[3])
     
-    if user_id not in USER_SEARCH_RESULTS or idx >= len(USER_SEARCH_RESULTS[user_id]):
-        await callback.answer("❌ Xatolik: Qidiruv eskirgan. Iltimos, qo'shiqni qaytadan qidiring.", show_alert=True)
+    current_user_id = callback.from_user.id
+    
+    if current_user_id != target_user_id:
+        await callback.answer("❌ Bu tugma boshqa foydalanuvchiga tegishli!", show_alert=True)
+        return
+
+    if current_user_id not in USER_SEARCH_RESULTS or idx >= len(USER_SEARCH_RESULTS[current_user_id]):
+        await callback.answer("❌ Qidiruv eskirgan. Iltimos, qo'shiqni qaytadan qidiring.", show_alert=True)
         return
         
-    song_url = USER_SEARCH_RESULTS[user_id][idx]
+    song_url = USER_SEARCH_RESULTS[current_user_id][idx]
     
     status_msg = await callback.message.answer("⏳ Tanlangan qo'shiq yuklab olinmoqda, iltimos kuting...")
     
-    output_template = f"song_{user_id}.mp3"
+    output_template = f"song_{current_user_id}.mp3"
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': output_template.replace('.mp3', '.%(ext)s'),
@@ -305,7 +316,7 @@ async def download_indexed_song(callback: types.CallbackQuery):
                 ydl.download([song_url])
         
         await asyncio.to_thread(download_audio)
-        actual_file = f"song_{user_id}.mp3"
+        actual_file = f"song_{current_user_id}.mp3"
         
         if os.path.exists(actual_file):
             audio_file = types.FSInputFile(actual_file)
