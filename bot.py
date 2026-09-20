@@ -220,7 +220,7 @@ async def handle_all_messages(message: types.Message):
                 parse_mode="Markdown"
             )
 
-    # 3. Oddiy matn bo'lsa -> SoundCloud orqali qo'shiq qidirish
+    # 3. Oddiy matn bo'lsa -> SoundCloud orqali qo'shiq qidirish va reklamalarni filtrlash
     else:
         processing_msg = await message.answer("🎵 Qo'shiqlar qidirilmoqda, iltimos kuting...")
         try:
@@ -233,7 +233,7 @@ async def handle_all_messages(message: types.Message):
             }
             def search_songs():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    return ydl.extract_info(f"scsearch10:{text}", download=False)
+                    return ydl.extract_info(f"scsearch15:{text}", download=False)
             
             info = await asyncio.to_thread(search_songs)
             entries = info.get('entries', [])
@@ -245,18 +245,32 @@ async def handle_all_messages(message: types.Message):
             result_text = f"🔍 <b>Qidiruv natijasi: {text}</b>\n\n"
             video_ids = []
             
-            for idx, entry in enumerate(entries[:10], 1):
-                title = entry.get('title', 'Nomaʼlum qoʻshiq')
+            for entry in entries:
+                title = entry.get('title')
                 url = entry.get('webpage_url') or entry.get('url')
                 
+                # Reklama yoki Telegram havolalarini filtrlab tashlaymiz
+                if not title or not url:
+                    continue
+                if "t.me" in url or "telegram" in url.lower() or "A_ToolsX" in title:
+                    continue
+                
                 # Agar havola to'liq bo'lmasa, to'g'rilaymiz
-                if url and not url.startswith('http'):
+                if not url.startswith('http'):
                     url = "https://soundcloud.com" + url
                 
-                result_text += f"<b>{idx}.</b> {title}\n"
-                if url:
+                if len(video_ids) < 10:
                     video_ids.append(url)
-            
+                    idx_num = len(video_ids)
+                    result_text += f"<b>{idx_num}.</b> {title}\n"
+                
+                if len(video_ids) >= 10:
+                    break
+
+            if not video_ids:
+                await processing_msg.edit_text("❌ Afsuski, mos qo'shiqlar topilmadi.")
+                return
+
             USER_SEARCH_RESULTS[user_id] = video_ids
             
             row1 = [InlineKeyboardButton(text=str(i), callback_data=f"song_idx_{user_id}_{i-1}") for i in range(1, 6) if i <= len(video_ids)]
