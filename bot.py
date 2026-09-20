@@ -68,9 +68,6 @@ async def start_handler(message: types.Message):
         inline_keyboard=[
             [
                 InlineKeyboardButton(text="🔍 Kino qidirish", callback_data="search_movie")
-            ],
-            [
-                InlineKeyboardButton(text="📢 Reklama berish", callback_data="reklama_info")
             ]
         ]
     )
@@ -87,23 +84,6 @@ async def start_handler(message: types.Message):
 async def search_callback(callback: types.CallbackQuery):
     await callback.message.answer("Marhamat, ko'rmoqchi bo'lgan kino kodini yuboring! ✍️")
     await callback.answer()
-
-# Reklama berish tugmasi bosilganda ishlaydigan qism
-@dp.callback_query(F.data == "reklama_info")
-async def reklama_callback(callback: types.CallbackQuery):
-    text = (
-        "📢 **Reklama Xizmati va Shartlari**\n\n"
-        "Botimizda o'z kanalingiz, guruhingiz yoki loyihangizni reklama qilishingiz mumkin!\n\n"
-        "📋 **Reklama turlari va narxlari:**\n"
-        "• **1 soat** — Lenta boshida (top) turadi\n"
-        "• **24 soat** — Lenta yuqori qismida saqlanadi\n"
-        "• **Doimiy** — Arxivda qoladi\n\n"
-        "⚠️ **Talablar:**\n"
-        "• Reklama mazmuni O'zbekiston qonunchiligiga va Telegram qoidalariga zid bo'lmasligi kerak.\n"
-        "• Shubhali, aldov yoki taqiqlangan kontentlar qabul qilinmaydi.\n\n"
-        f"👨‍💻 **Murojaat va buyurtma uchun:** {ADMIN_USERNAME}\n"
-        "*Yozayotganda reklamangiz matni va havolasini birga yuboring!* 🚀"
-    )
     
     # Orqaga qaytish tugmasi
     keyboard = InlineKeyboardMarkup(
