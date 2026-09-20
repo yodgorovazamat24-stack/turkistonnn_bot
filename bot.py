@@ -183,7 +183,15 @@ async def handle_all_messages(message: types.Message):
                 ydl.download([text])
             
             video_file = types.FSInputFile(output_template)
-            await message.answer_video(video=video_file, caption="✅ Marhamat, siz so'ragan video!")
+        
+        # Reklama matni va bot havolasi
+        caption_text = (
+            "✅ **Marhamat, siz so'ragan video!**\n\n"
+            "📥 *Video yuklab oluvchi bot: @turkiston_bot*\n"
+            "🎬 *Kino va videolar bazasi*"
+        )
+        
+        await message.answer_video(video=video_file, caption=caption_text, parse_mode="Markdown")
             
             if os.path.exists(output_template):
                 os.remove(output_template)
