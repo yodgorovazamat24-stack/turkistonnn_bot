@@ -28,8 +28,9 @@ dp = Dispatcher()
 # Jami start bosgan foydalanuvchilar bazasi
 ALL_USERS = set()
 
-# Foydalanuvchilarning oxirgi qidiruv natijalarini saqlash uchun
+# Foydalanuvchilarning oxirgi qidiruv natijalarini va qo'shiq nomlarini saqlash uchun
 USER_SEARCH_RESULTS = {}
+USER_SEARCH_TITLES = {}
 
 # ========= RENDER UCHUN KICHIK VEB-SERVER =========
 app = Flask('')
@@ -144,6 +145,53 @@ async def stats_command(message: types.Message):
     text = f"📊 **BOT STATISTIKASI**\n\n👥 Jami obunachilar (Start bosganlar): **{len(ALL_USERS)} ta**"
     await message.answer(text, parse_mode="Markdown")
 
+# ================= SAHIFALASH (PAGINATION) UCHUN YORDAMCHI FUNKSIYA =================
+def generate_search_keyboard(user_id: int, page: int, total_pages: int, current_items_count: int):
+    keyboard_layout = []
+    
+    # 1 dan 5 gacha yoki hozirgi sahifadagi elementlar soniga qarab raqamli tugmalar tuzamiz
+    row1 = []
+    row2 = []
+    for i in range(1, current_items_count + 1):
+        btn = InlineKeyboardButton(text=str(i), callback_data=f"song_idx_{user_id}_{page}_{i-1}")
+        if i <= 5:
+            row1.append(btn)
+        else:
+            row2.append(btn)
+            
+    if row1: keyboard_layout.append(row1)
+    if row2: keyboard_layout.append(row2)
+    
+    # Sahifalash tugmalari (Orqaga / Oldinga)
+    nav_row = []
+    if page > 0:
+        nav_row.append(InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"song_page_{user_id}_{page-1}"))
+    
+    nav_row.append(InlineKeyboardButton(text=f"📄 {page+1}/{total_pages}", callback_data="noop"))
+    
+    if page < total_pages - 1:
+        nav_row.append(InlineKeyboardButton(text="Keyingisi ➡️", callback_data=f"song_page_{user_id}_{page+1}"))
+        
+    if nav_row:
+        keyboard_layout.append(nav_row)
+        
+    # Bekor qilish tugmasi
+    keyboard_layout.append([InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_search")])
+    
+    return InlineKeyboardMarkup(inline_keyboard=keyboard_layout)
+
+def get_page_content(user_id: int, page: int):
+    urls = USER_SEARCH_RESULTS.get(user_id, [])
+    titles = USER_SEARCH_TITLES.get(user_id, [])
+    
+    start_idx = page * 5
+    end_idx = start_idx + 5
+    
+    page_urls = urls[start_idx:end_idx]
+    page_titles = titles[start_idx:end_idx]
+    
+    return page_urls, page_titles
+
 # ================= XABARLAR BILAN ISHLASH (HANDLER) =================
 
 @dp.message(F.text)
@@ -220,7 +268,7 @@ async def handle_all_messages(message: types.Message):
                 parse_mode="Markdown"
             )
 
-    # 3. Oddiy matn bo'lsa -> SoundCloud orqali qo'shiq qidirish va kuchaytirilgan spam filtrlash
+    # 3. Oddiy matn bo'lsa -> SoundCloud orqali qo'shiq qidirish va ko'p sahifali qilib chiqarish
     else:
         processing_msg = await message.answer("🎵 Qo'shiqlar qidirilmoqda, iltimos kuting...")
         try:
@@ -233,7 +281,7 @@ async def handle_all_messages(message: types.Message):
             }
             def search_songs():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    return ydl.extract_info(f"scsearch25:{text}", download=False)
+                    return ydl.extract_info(f"scsearch30:{text}", download=False)
             
             info = await asyncio.to_thread(search_songs)
             entries = info.get('entries', [])
@@ -242,41 +290,36 @@ async def handle_all_messages(message: types.Message):
                 await processing_msg.edit_text("❌ Hech qanday qo'shiq topilmadi.")
                 return
                 
-            result_text = f"🔍 <b>Qidiruv natijasi: {text}</b>\n\n"
             video_ids = []
+            video_titles = []
             
             for entry in entries:
                 title = entry.get('title', '')
                 url = entry.get('webpage_url') or entry.get('url', '')
                 description = entry.get('description', '')
                 
-                # Matnlarni kichik harfga o'tkazib tekshiramiz
                 combined_text = (title + " " + description + " " + str(url)).lower()
                 
-                # Kuchaytirilgan reklama va spam so'zlar ro'yxati
                 spam_keywords = [
                     't.me', 'telegram', 'a_toolsx', 'must join', 
                     'subscribe', 'bot', 'channel', 'официальный канал', 
                     'подпишись', 'реклама', 'кanal', 'obuna', 'join'
                 ]
                 
-                # Agar matnda reklama so'zlari bo'lsa, uni tashlab yuboramiz
                 if any(word in combined_text for word in spam_keywords):
                     continue
                 
                 if not title or not url:
                     continue
                 
-                # Havolani to'g'rilash
                 if not str(url).startswith('http'):
                     url = "https://soundcloud.com" + str(url)
                 
-                if len(video_ids) < 10:
+                if url not in video_ids:
                     video_ids.append(url)
-                    idx_num = len(video_ids)
-                    result_text += f"<b>{idx_num}.</b> {title}\n"
+                    video_titles.append(title)
                 
-                if len(video_ids) >= 10:
+                if len(video_ids) >= 15:  # Jami 15 tagacha toza qo'shiq yig'amiz (3 ta sahifa)
                     break
 
             if not video_ids:
@@ -284,28 +327,67 @@ async def handle_all_messages(message: types.Message):
                 return
 
             USER_SEARCH_RESULTS[user_id] = video_ids
+            USER_SEARCH_TITLES[user_id] = video_titles
             
-            row1 = [InlineKeyboardButton(text=str(i), callback_data=f"song_idx_{user_id}_{i-1}") for i in range(1, 6) if i <= len(video_ids)]
-            row2 = [InlineKeyboardButton(text=str(i), callback_data=f"song_idx_{user_id}_{i-1}") for i in range(6, 11) if i <= len(video_ids)]
-            cancel_row = [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_search")]
+            page = 0
+            total_pages = (len(video_ids) + 4) // 5  # Har sahifada 5 tadan
             
-            keyboard_layout = []
-            if row1: keyboard_layout.append(row1)
-            if row2: keyboard_layout.append(row2)
-            keyboard_layout.append(cancel_row)
+            page_urls, page_titles = get_page_content(user_id, page)
             
-            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_layout)
-            
+            result_text = f"🔍 <b>Qidiruv natijasi: {text}</b> (Sahifa {page+1}/{total_pages})\n\n"
+            for idx, title in enumerate(page_titles, 1):
+                result_text += f"<b>{idx}.</b> {title}\n"
+                
+            keyboard = generate_search_keyboard(user_id, page, total_pages, len(page_urls))
             await processing_msg.edit_text(result_text, parse_mode="HTML", reply_markup=keyboard)
         except Exception as e:
             await processing_msg.edit_text(f"❌ Qidirishda xatolik yuz berdi: {e}")
 
-# Raqamli tugma bosilganda qo'shiqni yuklab berish
+# Sahifalarni almashtirish (Callback)
+@dp.callback_query(F.data.startswith("song_page_"))
+async def change_song_page(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    target_user_id = int(parts[2])
+    page = int(parts[3])
+    
+    if callback.from_user.id != target_user_id:
+        await callback.answer("❌ Bu tugma boshqa foydalanuvchiga tegishli!", show_alert=True)
+        return
+        
+    urls = USER_SEARCH_RESULTS.get(target_user_id, [])
+    titles = USER_SEARCH_TITLES.get(target_user_id, [])
+    
+    if not urls:
+        await callback.answer("❌ Qidiruv muddati tugagan. Qaytadan qidiring.", show_alert=True)
+        return
+        
+    total_pages = (len(urls) + 4) // 5
+    page_urls, page_titles = get_page_content(target_user_id, page)
+    
+    result_text = f"🔍 <b>Qidiruv natijalari</b> (Sahifa {page+1}/{total_pages})\n\n"
+    for idx, title in enumerate(page_titles, 1):
+        result_text += f"<b>{idx}.</b> {title}\n"
+        
+    keyboard = generate_search_keyboard(target_user_id, page, total_pages, len(page_urls))
+    
+    try:
+        await callback.message.edit_text(result_text, parse_mode="HTML", reply_markup=keyboard)
+    except Exception:
+        pass
+    await callback.answer()
+
+# Keraksiz sahifa raqamini bosganda hech narsa qilmaslik uchun
+@dp.callback_query(F.data == "noop")
+async def noop_callback(callback: types.CallbackQuery):
+    await callback.answer()
+
+# Raqamli tugma bosilganda qo'shiqni yuklab berish (Sahifani hisobga olgan holda)
 @dp.callback_query(F.data.startswith("song_idx_"))
 async def download_indexed_song(callback: types.CallbackQuery):
     parts = callback.data.split("_")
     target_user_id = int(parts[2])
-    idx = int(parts[3])
+    page = int(parts[3])
+    local_idx = int(parts[4])
     
     current_user_id = callback.from_user.id
     
@@ -313,11 +395,14 @@ async def download_indexed_song(callback: types.CallbackQuery):
         await callback.answer("❌ Bu tugma boshqa foydalanuvchiga tegishli!", show_alert=True)
         return
 
-    if current_user_id not in USER_SEARCH_RESULTS or idx >= len(USER_SEARCH_RESULTS[current_user_id]):
+    urls = USER_SEARCH_RESULTS.get(current_user_id, [])
+    global_idx = (page * 5) + local_idx
+    
+    if current_user_id not in USER_SEARCH_RESULTS or global_idx >= len(urls):
         await callback.answer("❌ Qidiruv eskirgan. Iltimos, qo'shiqni qaytadan qidiring.", show_alert=True)
         return
         
-    song_url = USER_SEARCH_RESULTS[current_user_id][idx]
+    song_url = urls[global_idx]
     
     status_msg = await callback.message.answer("⏳ Tanlangan qo'shiq yuklab olinmoqda, iltimos kuting...")
     
@@ -368,8 +453,6 @@ async def cancel_search_callback(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "check_sub")
 async def recheck_subscription(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    is_subscribed = await check_subscriptions(user_id)
-    
     is_subscribed = await check_subscriptions(user_id)
     
     if is_subscribed:
