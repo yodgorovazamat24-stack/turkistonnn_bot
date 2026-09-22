@@ -6,6 +6,7 @@ from threading import Thread
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 import yt_dlp
 
 TOKEN = "8596519118:AAHnKyRAk4vEZGtjH8gx-pWGOk2JAZ89-YU"
@@ -14,6 +15,9 @@ CHANNEL_ID = -1004452847162  # Kino bazasi joylashgan yopiq kanal
 # ================= SOZLAMALAR =================
 ADMIN_ID = 5144043830
 ADMIN_USERNAME = "@yodgorov_life"
+
+# Majburiy obuna qilinishi kerak bo'lgan kanallar (bot ularda admin bo'lishi kerak!)
+REQUIRED_CHANNELS = ["@zakafka289", "@zayafka154"]
 # ==============================================
 
 bot = Bot(token=TOKEN)
@@ -54,17 +58,55 @@ def get_main_menu():
         ]
     )
 
+# ========= MAJBURIY OBUNANI TEKSHIRISH FUNKSIYASI =========
+async def check_user_subscriptions(user_id: int) -> bool:
+    for channel in REQUIRED_CHANNELS:
+        try:
+            member = await bot.get_chat_member(chat_id=channel, user_id=user_id)
+            if member.status in ["left", "kicked"]:
+                return False
+        except Exception as e:
+            print(f"Kanalni tekshirishda xatolik {channel}: {e}")
+            return False
+    return True
+
+async def send_subscription_widget(message_or_callback):
+    builder = InlineKeyboardBuilder()
+    for ch in REQUIRED_CHANNELS:
+        clean_ch = ch.replace('@', '')
+        builder.button(text=f"📢 Kanalga obuna bo'lish", url=f"https://t.me/{clean_ch}")
+    builder.button(text="✅ Obunani tekshirish", callback_data="check_sub")
+    builder.adjust(1)
+    
+    text = (
+        "⚠️ **Botimizdan foydalanish uchun quyidagi kanallarga obuna bo'lishingiz kerak:**\n\n"
+        "Kanallarga a'zo bo'lgach, **«✅ Obunani tekshirish»** tugmasini bosing!"
+    )
+    
+    if isinstance(message_or_callback, types.Message):
+        await message_or_callback.answer(text, parse_mode="Markdown", reply_markup=builder.as_markup())
+    elif isinstance(message_or_callback, types.CallbackQuery):
+        try:
+            await message_or_callback.message.edit_text(text, parse_mode="Markdown", reply_markup=builder.as_markup())
+        except Exception:
+            await message_or_callback.message.answer(text, parse_mode="Markdown", reply_markup=builder.as_markup())
+
 # /start komandasi
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
     user_id = message.from_user.id
     ALL_USERS.add(user_id)  
     
+    # Avval obunani tekshiramiz
+    if not await check_user_subscriptions(user_id):
+        await send_subscription_widget(message)
+        return
+
     if user_id == ADMIN_ID:
         await message.answer("🛠 *Admin ekanligingiz aniqlandi.*\nAdmin panelni ochish uchun 👉 /admin", parse_mode="Markdown")
 
     start_text = (
-        "🎬 **Assalomu alaykum, Turkiston botiga xush kelibsiz!**\n\n"
+        "🎬 **Assalomu alaykum, botimizga xush kelibsiz!**\n\n"
         "Quyidagi menyudan o'zingizga kerakli xizmatni tanlang:\n\n"
         "• *Kino qidirish* — Kino kodini yuborish orqali kinolarni oling.\n"
         "• *Video yuklab olish* — Instagram va TikTok tarmoqlaridan video havolasini yuboring.\n"
@@ -73,9 +115,29 @@ async def start_handler(message: types.Message):
     
     await message.answer(start_text, parse_mode="Markdown", reply_markup=get_main_menu())
 
+# Obunani tekshirish tugmasi ishlovchisi
+@dp.callback_query(F.data == "check_sub")
+async def check_sub_callback(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    if await check_user_subscriptions(user_id):
+        await callback.answer("✅ Rahmat, kanallarga obuna bo'lgansiz!", show_alert=True)
+        start_text = (
+            "🎬 **Assalomu alaykum, botimizga xush kelibsiz!**\n\n"
+            "Quyidagi menyudan o'zingizga kerakli xizmatni tanlang:"
+        )
+        try:
+            await callback.message.edit_text(start_text, parse_mode="Markdown", reply_markup=get_main_menu())
+        except Exception:
+            await callback.message.answer(start_text, parse_mode="Markdown", reply_markup=get_main_menu())
+    else:
+        await callback.answer("❌ Siz hali hamma kanallarga obuna bo'lmadingiz!", show_alert=True)
+
 # Tugmalar bo'yicha yo'naltirishlar
 @dp.callback_query(F.data == "search_movie")
 async def search_callback(callback: types.CallbackQuery):
+    if not await check_user_subscriptions(callback.from_user.id):
+        await send_subscription_widget(callback)
+        return
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_start")]
@@ -86,6 +148,9 @@ async def search_callback(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "download_video_menu")
 async def download_video_callback(callback: types.CallbackQuery):
+    if not await check_user_subscriptions(callback.from_user.id):
+        await send_subscription_widget(callback)
+        return
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_start")]
@@ -96,6 +161,9 @@ async def download_video_callback(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "search_song_menu")
 async def search_song_callback(callback: types.CallbackQuery):
+    if not await check_user_subscriptions(callback.from_user.id):
+        await send_subscription_widget(callback)
+        return
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_start")]
@@ -106,8 +174,11 @@ async def search_song_callback(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "back_to_start")
 async def back_to_start_callback(callback: types.CallbackQuery):
+    if not await check_user_subscriptions(callback.from_user.id):
+        await send_subscription_widget(callback)
+        return
     start_text = (
-        "🎬 **Assalomu alaykum, Turkiston botiga xush kelibsiz!**\n\n"
+        "🎬 **Assalomu alaykum, botimizga xush kelibsiz!**\n\n"
         "Quyidagi menyudan o'zingizga kerakli xizmatni tanlang:"
     )
     await callback.message.edit_text(start_text, parse_mode="Markdown", reply_markup=get_main_menu())
@@ -178,6 +249,12 @@ def get_page_content(user_id: int, page: int):
 @dp.message(F.text)
 async def handle_all_messages(message: types.Message):
     user_id = message.from_user.id
+    
+    # Har qanday xabar yozilganda ham obunani tekshiramiz
+    if not await check_user_subscriptions(user_id):
+        await send_subscription_widget(message)
+        return
+
     text = message.text.strip()
 
     if text.startswith("http://") or text.startswith("https://"):
@@ -201,8 +278,7 @@ async def handle_all_messages(message: types.Message):
             
             caption_text = (
                 "✅ **Marhamat, siz so'ragan video!**\n\n"
-                "📥 *Video yuklab oluvchi bot: @turkiston_bot*\n"
-                "🎬 *Kino va videolar bazasi*"
+                "📥 *Video yuklab oluvchi bot*"
             )
             
             await message.answer_video(video=video_file, caption=caption_text, parse_mode="Markdown")
@@ -294,6 +370,9 @@ async def handle_all_messages(message: types.Message):
 
 @dp.callback_query(F.data.startswith("song_page_"))
 async def change_song_page(callback: types.CallbackQuery):
+    if not await check_user_subscriptions(callback.from_user.id):
+        await send_subscription_widget(callback)
+        return
     parts = callback.data.split("_")
     target_user_id = int(parts[2])
     page = int(parts[3])
@@ -331,6 +410,9 @@ async def noop_callback(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data.startswith("song_idx_"))
 async def download_indexed_song(callback: types.CallbackQuery):
+    if not await check_user_subscriptions(callback.from_user.id):
+        await send_subscription_widget(callback)
+        return
     parts = callback.data.split("_")
     target_user_id = int(parts[2])
     local_idx = int(parts[3])
@@ -381,7 +463,7 @@ async def download_indexed_song(callback: types.CallbackQuery):
             audio_file = types.FSInputFile(actual_file)
             caption_text = (
                 "🎵 **Marhamat, siz so'ragan qo'shiq!**\n\n"
-                "📥 *Musiqa yuklab oluvchi bot: @turkiston_bot*"
+                "📥 *Musiqa yuklab oluvchi bot*"
             )
             await callback.message.answer_audio(audio=audio_file, caption=caption_text, parse_mode="Markdown")
             os.remove(actual_file)
