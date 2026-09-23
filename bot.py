@@ -58,6 +58,15 @@ def get_main_menu():
         ]
     )
 
+# ========= BOT PROFILIDAGI FOYDALANUVCHILAR SONINI YANGILASH =========
+async def update_bot_about():
+    try:
+        total_users = len(ALL_USERS)
+        new_about = f"🎬 Kino, Video va Musiqa boti.\n👥 Foydalanuvchilar: {total_users} ta"
+        await bot.set_my_short_description(short_description=new_about)
+    except Exception as e:
+        print(f"About qismini yangilashda xatolik: {e}")
+
 # ========= MAJBURIY OBUNANI TEKSHIRISH FUNKSIYASI =========
 async def check_user_subscriptions(user_id: int) -> bool:
     for channel in REQUIRED_CHANNELS:
@@ -96,6 +105,9 @@ async def send_subscription_widget(message_or_callback):
 async def start_handler(message: types.Message):
     user_id = message.from_user.id
     ALL_USERS.add(user_id)  
+    
+    # Bot profilidagi statistika sonini yangilash
+    await update_bot_about()
     
     if not await check_user_subscriptions(user_id):
         await send_subscription_widget(message)
@@ -183,7 +195,7 @@ async def back_to_start_callback(callback: types.CallbackQuery):
     await callback.message.edit_text(start_text, parse_mode="Markdown", reply_markup=get_main_menu())
     await callback.answer()
 
-# ================= TO'G'RILANGAN ADMIN PANEL =================
+# ================= ADMIN PANEL =================
 
 @dp.message(Command("admin"))
 async def admin_panel(message: types.Message):
@@ -273,7 +285,6 @@ async def handle_all_messages(message: types.Message):
             await asyncio.to_thread(download_video)
             video_file = types.FSInputFile(output_template)
             
-            # Bot havolasi qayta tiklandi!
             caption_text = (
                 "✅ **Marhamat, siz so'ragan video!**\n\n"
                 "📥 *Video yuklab oluvchi bot: @turkistonn_bot*\n"
