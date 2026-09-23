@@ -16,7 +16,7 @@ CHANNEL_ID = -1004452847162  # Kino bazasi joylashgan yopiq kanal
 ADMIN_ID = 5144043830
 ADMIN_USERNAME = "@yodgorov_life"
 
-# Majburiy obuna qilinishi kerak bo'lgan kanallar (bot ularda admin bo'lishi kerak!)
+# Majburiy obuna qilinishi kerak bo'lgan kanallar
 REQUIRED_CHANNELS = ["@zakafka289", "@zayafka154"]
 # ==============================================
 
@@ -97,7 +97,6 @@ async def start_handler(message: types.Message):
     user_id = message.from_user.id
     ALL_USERS.add(user_id)  
     
-    # Avval obunani tekshiramiz
     if not await check_user_subscriptions(user_id):
         await send_subscription_widget(message)
         return
@@ -115,7 +114,7 @@ async def start_handler(message: types.Message):
     
     await message.answer(start_text, parse_mode="Markdown", reply_markup=get_main_menu())
 
-# Obunani tekshirish tugmasi ishlovchisi
+# Obunani tekshirish tugmasi
 @dp.callback_query(F.data == "check_sub")
 async def check_sub_callback(callback: types.CallbackQuery):
     user_id = callback.from_user.id
@@ -184,13 +183,17 @@ async def back_to_start_callback(callback: types.CallbackQuery):
     await callback.message.edit_text(start_text, parse_mode="Markdown", reply_markup=get_main_menu())
     await callback.answer()
 
-# ================= ADMIN PANEL =================
+# ================= TO'G'RILANGAN ADMIN PANEL =================
 
 @dp.message(Command("admin"))
 async def admin_panel(message: types.Message):
     if message.from_user.id != ADMIN_ID:
         return
-    text = "👑 **ADMIN PANEL**\n\n📊 Statistikani ko'rish uchun: `/stats`"
+    text = (
+        "👑 **ADMIN PANEL**\n\n"
+        "📊 Bot statistikasini ko'rish uchun quyidagi buyruqdan foydalaning:\n"
+        "👉 /stats"
+    )
     await message.answer(text, parse_mode="Markdown")
 
 @dp.message(Command("stats"))
@@ -200,10 +203,9 @@ async def stats_command(message: types.Message):
     text = f"📊 **BOT STATISTIKASI**\n\n👥 Jami obunachilar (Start bosganlar): **{len(ALL_USERS)} ta**"
     await message.answer(text, parse_mode="Markdown")
 
-# ================= SAHIFALASH (PAGINATION) UCHUN YORDAMCHI FUNKSIYA =================
+# ================= SAHIFALASH (PAGINATION) =================
 def generate_search_keyboard(user_id: int, page: int, total_pages: int, current_items_count: int):
     keyboard_layout = []
-    
     row1 = []
     row2 = []
     for i in range(1, current_items_count + 1):
@@ -235,14 +237,9 @@ def generate_search_keyboard(user_id: int, page: int, total_pages: int, current_
 def get_page_content(user_id: int, page: int):
     urls = USER_SEARCH_RESULTS.get(user_id, [])
     titles = USER_SEARCH_TITLES.get(user_id, [])
-    
     start_idx = page * 5
     end_idx = start_idx + 5
-    
-    page_urls = urls[start_idx:end_idx]
-    page_titles = titles[start_idx:end_idx]
-    
-    return page_urls, page_titles
+    return urls[start_idx:end_idx], titles[start_idx:end_idx]
 
 # ================= XABARLAR BILAN ISHLASH (HANDLER) =================
 
@@ -250,13 +247,13 @@ def get_page_content(user_id: int, page: int):
 async def handle_all_messages(message: types.Message):
     user_id = message.from_user.id
     
-    # Har qanday xabar yozilganda ham obunani tekshiramiz
     if not await check_user_subscriptions(user_id):
         await send_subscription_widget(message)
         return
 
     text = message.text.strip()
 
+    # Video yuklab olish (Instagram / TikTok)
     if text.startswith("http://") or text.startswith("https://"):
         processing_msg = await message.answer("⏳ Video yuklab olinmoqda, iltimos kuting...")
         
@@ -276,9 +273,11 @@ async def handle_all_messages(message: types.Message):
             await asyncio.to_thread(download_video)
             video_file = types.FSInputFile(output_template)
             
+            # Bot havolasi qayta tiklandi!
             caption_text = (
                 "✅ **Marhamat, siz so'ragan video!**\n\n"
-                "📥 *Video yuklab oluvchi bot*"
+                "📥 *Video yuklab oluvchi bot: @turkistonn_bot*\n"
+                "🎬 *Oila va bolalar uchun sara kinolar bazasi*"
             )
             
             await message.answer_video(video=video_file, caption=caption_text, parse_mode="Markdown")
@@ -290,6 +289,7 @@ async def handle_all_messages(message: types.Message):
         except Exception as e:
             await processing_msg.edit_text(f"❌ Videoni yuklab bo'lmadi. Havola noto'g'ri yoki hajmi juda katta.\n\nXatolik: {e}")
 
+    # Kino kodi orqali qidirish
     elif text.isdigit():
         movie_code = int(text)
         try:
@@ -305,6 +305,7 @@ async def handle_all_messages(message: types.Message):
                 parse_mode="Markdown"
             )
 
+    # Qo'shiq qidirish
     else:
         processing_msg = await message.answer("🎵 Qo'shiqlar qidirilmoqda, iltimos kuting...")
         try:
@@ -425,7 +426,6 @@ async def download_indexed_song(callback: types.CallbackQuery):
 
     urls = USER_SEARCH_RESULTS.get(current_user_id, [])
     current_page = USER_CURRENT_PAGE.get(current_user_id, 0)
-    
     global_idx = (current_page * 5) + local_idx
     
     if current_user_id not in USER_SEARCH_RESULTS or global_idx >= len(urls):
@@ -433,7 +433,6 @@ async def download_indexed_song(callback: types.CallbackQuery):
         return
         
     song_url = urls[global_idx]
-    
     status_msg = await callback.message.answer("⏳ Tanlangan qo'shiq yuklab olinmoqda, iltimos kuting...")
     
     output_template = f"song_{current_user_id}.mp3"
@@ -463,7 +462,7 @@ async def download_indexed_song(callback: types.CallbackQuery):
             audio_file = types.FSInputFile(actual_file)
             caption_text = (
                 "🎵 **Marhamat, siz so'ragan qo'shiq!**\n\n"
-                "📥 *Musiqa yuklab oluvchi bot*"
+                "📥 *Musiqa yuklab oluvchi bot: @turkistonn_bot*"
             )
             await callback.message.answer_audio(audio=audio_file, caption=caption_text, parse_mode="Markdown")
             os.remove(actual_file)
