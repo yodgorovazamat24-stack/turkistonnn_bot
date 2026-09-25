@@ -270,11 +270,10 @@ async def handle_all_messages(message: types.Message):
         processing_msg = await message.answer("⏳ Video yuklab olinmoqda, iltimos kuting...")
         
         output_template = "video.mp4"
-        ydl_opts = {
-            'format': 'best[filesize<50M]/best',
+    ydl_opts = {
+            'format': 'best',
             'outtmpl': output_template,
-            'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
-            'http_headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+            'http_headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
         }
 
         try:
